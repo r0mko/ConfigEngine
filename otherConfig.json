@@ -1,0 +1,15 @@
+{
+   "myName": "r0mko",
+   "nonExistentProperty": "foo",
+   "editor":{
+      "backgroundColor": "#eeeeee",
+      "fontSize": 54,
+      "rotation": 30,
+      "fontFamily": "Arial"
+   },
+   "colors":{
+      "palette":{
+         "yellow":"#ffaa00"
+      }
+   }
+}

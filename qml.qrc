@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>main.qml</file>
+        <file>testConfig.json</file>
+        <file>otherConfig.json</file>
+    </qresource>
+</RCC>

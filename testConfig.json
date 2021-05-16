@@ -1,0 +1,32 @@
+{
+	"myName": "Roman Novikov",
+	"editor": {
+		"backgroundColor": "#ffffff",
+		"fontSize": 18,
+		"fontFamily": "Helvetica",
+		"enableUndo": true,
+		"forceUpdate": false,
+		"rotation": 0
+	},
+	"fonts": {
+		"preloadSystemFonts": true,
+		"fetchVariants": false,
+		"defaultSize": 14
+	},
+	"colors": {
+		"defaultBackground": "#ffffff",
+		"defaultLabel": "#000000",
+		"highligtText": "#ffffff",
+		"highligtBackground": "#000080",
+		"palette": {
+			"black": "#000000",
+			"blue": "#0000ff",
+			"red": "#ff0000",
+			"magenta": "#ff00ff",
+			"green": "#00ff00",
+			"cyan": "#00ffff",
+			"yellow": "#ffff00",
+			"white": "#ffffff"
+		}
+	}
+}

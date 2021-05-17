@@ -23,8 +23,6 @@ public:
 
     ConfigEngine(QObject *parent = nullptr);
 
-    void setProperty(const QString &key, QVariant value, ConfigLevel level = Global);
-
     virtual ~ConfigEngine() {}
 
     QObject *root() const;
@@ -35,6 +33,8 @@ public slots:
     void loadConfig(const QString &path, ConfigLevel level = Global);
     void loadData(const QByteArray &data, ConfigLevel level = Global);
     void unloadConfig(ConfigLevel level);
+    void clear();
+    void setProperty(const QString &key, QVariant value, ConfigLevel level = Global);
 
 signals:
     void dataChanged(QJsonObject data);
@@ -70,6 +70,9 @@ private:
 
         void clear();
         void unload(ConfigLevel level);
+
+        int indexOfProperty(const QString &name) const;
+        int indexOfChild(const QString &name) const;
 
         QString fullPropertyName(const QString &property) const;
     };

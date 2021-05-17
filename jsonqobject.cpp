@@ -13,17 +13,11 @@ JSONQObject::JSONQObject(QMetaObject *mo, ConfigEngine::Node *node, QObject *par
       m_node(node)
 {
     m_metaObject->d.static_metacall = staticMetaCallImpl;
-    for (int i = 0; i < m_metaObject->propertyCount(); ++i) {
-        QMetaProperty mp = m_metaObject->property(i);
-        qDebug() << "Property" << i << "name" << mp.name();
-    }
 }
 
 JSONQObject::~JSONQObject()
 {
-    qDebug() << "Called destructor of" << m_metaObject->className();
-    free(m_metaObject);
-
+    free(m_metaObject); // metaobject is unique for each JSONQObject
 }
 
 int JSONQObject::qt_metacall(QMetaObject::Call call, int id, void **arguments)
@@ -121,8 +115,20 @@ void JSONQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
         void *a = arguments[0];
 
         if (isPod) {
+            int ptype = m_metaObject->property(id).userType();
             const QVariant &prop = m_node->valueAt(index);//properties[index].second;
-            QMetaType::construct(prop.userType(), arguments[0], prop.constData());
+            if (ptype != prop.userType()) {
+                if (ptype == qMetaTypeId<qlonglong>()) {
+                    qlonglong val = prop.toLongLong();
+                    QMetaType::construct(ptype, arguments[0], &val);
+                } else if (ptype == qMetaTypeId<double>()) {
+                    double val = prop.toDouble();
+                    QMetaType::construct(ptype, arguments[0], &val);
+                }
+            } else {
+                QMetaType::construct(ptype, arguments[0], prop.constData());
+            }
+
         } else {
             *reinterpret_cast<QObject**>(a) = m_node->childNodes[index]->object;
         }

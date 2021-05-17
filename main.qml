@@ -40,6 +40,20 @@ Window {
                     ConfigEngine.unloadConfig(ConfigEngine.Project)
                 }
             }
+            Button {
+                text: "Clear"
+                onClicked: {
+                    ConfigEngine.clear()
+                }
+            }
+            Slider {
+                id: _slider
+                minimumValue: -90
+                maximumValue: 90
+                onValueChanged: {
+                    ConfigEngine.setProperty("editor.rotation", _slider.value, ConfigEngine.Project)
+                }
+            }
         }
 
     }

@@ -15,14 +15,6 @@ ConfigEngine::ConfigEngine(QObject *parent)
     m_data.resize(LevelsCount);
 }
 
-void ConfigEngine::setProperty(const QString &key, QVariant value, ConfigEngine::ConfigLevel level)
-{
-    QStringList parts = key.split(".");
-    QString lastKey = parts.takeLast();
-
-
-}
-
 void ConfigEngine::loadData(const QByteArray &data, ConfigEngine::ConfigLevel level)
 {
     QJsonParseError err;
@@ -49,6 +41,37 @@ void ConfigEngine::unloadConfig(ConfigEngine::ConfigLevel level)
     m_data[level] = QJsonObject();
     m_root.unload(level);
 
+}
+
+void ConfigEngine::clear()
+{
+    m_root.clear();
+    m_qmlEngine->rootContext()->setContextProperty("Config", m_root.object);
+    emit rootChanged();
+}
+
+void ConfigEngine::setProperty(const QString &key, QVariant value, ConfigEngine::ConfigLevel level)
+{
+    QStringList parts = key.split(".");
+    Node *n = &m_root;
+    int propIdx = -1;
+    while (n) {
+        if (parts.size() == 1) {
+            propIdx = n->indexOfProperty(parts.last());
+            break;
+        } else {
+            int childIdx = n->indexOfChild(parts.takeFirst());
+            if (childIdx == -1) {
+                n = nullptr;
+            } else {
+                n = n->childNodes[childIdx];
+            }
+        }
+    }
+    if (propIdx != -1) {
+        qDebug() << "Setting property" << key << "to" << value;
+        n->updateProperty(propIdx, level, value);
+    }
 }
 
 void ConfigEngine::setQmlEngine(QQmlEngine *qmlEngine)
@@ -142,6 +165,7 @@ void ConfigEngine::Node::createObject()
         }
         QByteArray pname = it->key.toLatin1();
         QMetaPropertyBuilder pb = b.addProperty(pname, type);
+        qDebug() << "Added property" << type << pname;
         pb.setStdCppSet(false);
         pb.setWritable(false);
         QByteArray sig(pname + "Changed()");
@@ -172,6 +196,7 @@ void ConfigEngine::Node::setJsonObject(QJsonObject object)
     QMap<QString, QJsonObject> objects;
     for (auto it = object.begin(); it != object.end(); ++it) {
         if (!it.value().isObject()) {
+            qDebug() << "Adding JSON prop" << it.key() << "type" << it.value().type();
             properties.append(NamedValueGroup(it.key(), it.value().toVariant()));
         } else {
             objects[it.key()] = it.value().toObject();
@@ -216,48 +241,43 @@ void ConfigEngine::Node::updateJsonObject(QJsonObject object, ConfigEngine::Conf
 
 void ConfigEngine::Node::updateProperty(int index, ConfigEngine::ConfigLevel level, QVariant value)
 {
-    bool notify = true;
+    QVariant oldValue = valueAt(index);
     properties[index].values[level] = value;
 
-    for (int i = level + 1; i < LevelsCount; ++i) {
-        notify &= !properties[index].values[i].isValid();
-    }
+    bool notify = oldValue != value;
 
     if (notify) {
-        qDebug() << "Property" << fullPropertyName(properties[index].key) << "has changed";
         object->notifyPropertyUpdate(index);
     }
 }
 
 void ConfigEngine::Node::clearProperty(int index, ConfigEngine::ConfigLevel level)
 {
-    bool notify = true;
+    QVariant value = valueAt(index);
     properties[index].values[level].clear();
-
-    for (int i = level; i < LevelsCount; ++i) {
-        notify &= !properties[index].values[i].isValid();
-    }
+    QVariant newValue = valueAt(index);
+    bool notify = newValue != value;
 
     if (notify) {
-        qDebug() << "Property" << fullPropertyName(properties[index].key) << "has changed";
         object->notifyPropertyUpdate(index);
     }
 }
 
 void ConfigEngine::Node::clear()
 {
-    for (auto child : childNodes) {
-        child->clear();
-    }
-
-    qDeleteAll(childNodes);
-
     if (object) {
         object->deleteLater();
         object = nullptr;
     }
+
     properties.clear();
     name.clear();
+
+    for (auto child : childNodes) {
+        child->clear();
+    }
+    qDeleteAll(childNodes);
+    childNodes.clear();
 }
 
 void ConfigEngine::Node::unload(ConfigEngine::ConfigLevel level)
@@ -268,6 +288,24 @@ void ConfigEngine::Node::unload(ConfigEngine::ConfigLevel level)
     for (auto n : childNodes) {
         n->unload(level);
     }
+}
+
+int ConfigEngine::Node::indexOfProperty(const QString &name) const
+{
+    auto it = std::find_if(properties.begin(), properties.end(), [&](const NamedValueGroup &grp) { return grp.key == name; });
+    if (it == properties.end()) {
+        return -1;
+    }
+    return std::distance(properties.begin(), it);
+}
+
+int ConfigEngine::Node::indexOfChild(const QString &name) const
+{
+    auto it = std::find_if(childNodes.begin(), childNodes.end(), [&](const Node *n) { return n->name == name; });
+    if (it == childNodes.end()) {
+        return -1;
+    }
+    return std::distance(childNodes.begin(), it);
 }
 
 QString ConfigEngine::Node::fullPropertyName(const QString &property) const

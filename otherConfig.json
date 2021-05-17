@@ -1,15 +1,21 @@
 {
-   "myName": "r0mko",
-   "nonExistentProperty": "foo",
-   "editor":{
-      "backgroundColor": "#eeeeee",
-      "fontSize": 54,
-      "rotation": 30,
-      "fontFamily": "Arial"
-   },
-   "colors":{
-      "palette":{
-         "yellow":"#ffaa00"
-      }
-   }
+    "myName": "r0mko",
+    "nonExistentProperty": "foo",
+    "editor": {
+        "backgroundColor": "#eeeeee",
+        "fontSize": 54,
+        "rotation": 30.0,
+        "fontFamily": "Arial"
+    },
+    "colors":{
+        "palette":{
+            "black": "#000000",
+            "blue": "#0000ff",
+            "red": "#ff0000",
+            "magenta": "#ff00ff",
+            "green": "#00ff00",
+            "yellow":"#ffbb00",
+            "nestedNonexistentProperty": false
+        }
+    }
 }

@@ -34,6 +34,7 @@ public:
 public slots:
     void loadConfig(const QString &path, ConfigLevel level = Global);
     void loadData(const QByteArray &data, ConfigLevel level = Global);
+    void unloadConfig(ConfigLevel level);
 
 signals:
     void dataChanged(QJsonObject data);
@@ -65,8 +66,10 @@ private:
         void setJsonObject(QJsonObject object);
         void updateJsonObject(QJsonObject object, ConfigLevel level);
         void updateProperty(int index, ConfigLevel level, QVariant value);
+        void clearProperty(int index, ConfigLevel level);
 
         void clear();
+        void unload(ConfigLevel level);
 
         QString fullPropertyName(const QString &property) const;
     };

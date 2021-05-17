@@ -39,6 +39,18 @@ void ConfigEngine::loadData(const QByteArray &data, ConfigEngine::ConfigLevel le
     updateTree(level);
 }
 
+void ConfigEngine::unloadConfig(ConfigEngine::ConfigLevel level)
+{
+    if (level == Global) {
+        qWarning() << "Can't unload global config. Use clear() method instead.";
+        return;
+    }
+
+    m_data[level] = QJsonObject();
+    m_root.unload(level);
+
+}
+
 void ConfigEngine::setQmlEngine(QQmlEngine *qmlEngine)
 {
     m_qmlEngine = qmlEngine;
@@ -52,7 +64,6 @@ QObject *ConfigEngine::root() const
 
 void ConfigEngine::loadConfig(const QString &path, ConfigEngine::ConfigLevel level)
 {
-    qDebug() << "Loading config" << path;
     QFile f(path);
     if (!f.open(QIODevice::ReadOnly)) {
         qWarning() << "File" << path << "not found!";
@@ -61,8 +72,9 @@ void ConfigEngine::loadConfig(const QString &path, ConfigEngine::ConfigLevel lev
     QByteArray data = f.readAll();
     f.close();
     loadData(data, level);
-    qDebug() << "config loaded";
 }
+
+
 
 void ConfigEngine::updateTree(ConfigEngine::ConfigLevel level)
 {
@@ -217,6 +229,21 @@ void ConfigEngine::Node::updateProperty(int index, ConfigEngine::ConfigLevel lev
     }
 }
 
+void ConfigEngine::Node::clearProperty(int index, ConfigEngine::ConfigLevel level)
+{
+    bool notify = true;
+    properties[index].values[level].clear();
+
+    for (int i = level; i < LevelsCount; ++i) {
+        notify &= !properties[index].values[i].isValid();
+    }
+
+    if (notify) {
+        qDebug() << "Property" << fullPropertyName(properties[index].key) << "has changed";
+        object->notifyPropertyUpdate(index);
+    }
+}
+
 void ConfigEngine::Node::clear()
 {
     for (auto child : childNodes) {
@@ -231,6 +258,16 @@ void ConfigEngine::Node::clear()
     }
     properties.clear();
     name.clear();
+}
+
+void ConfigEngine::Node::unload(ConfigEngine::ConfigLevel level)
+{
+    for (int i = 0; i < properties.size(); ++i) {
+        clearProperty(i, level);
+    }
+    for (auto n : childNodes) {
+        n->unload(level);
+    }
 }
 
 QString ConfigEngine::Node::fullPropertyName(const QString &property) const

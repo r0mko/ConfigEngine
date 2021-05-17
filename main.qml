@@ -1,4 +1,5 @@
 import QtQuick 2.12
+import QtQuick.Layouts 1.15
 import QtQuick.Controls 1.2
 import QtQuick.Window 2.12
 import Test 1.0
@@ -23,14 +24,24 @@ Window {
             rotation: Config.editor.rotation
         }
 
-        Button {
-            anchors.bottom: parent.bottom
+        RowLayout {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Load alternative config"
-            onClicked: {
-                ConfigEngine.loadConfig(":/otherConfig.json", ConfigEngine.Project)
+            anchors.bottom: parent.bottom
+
+            Button {
+                text: "Load alternative config"
+                onClicked: {
+                    ConfigEngine.loadConfig(":/otherConfig.json", ConfigEngine.Project)
+                }
+            }
+            Button {
+                text: "Unload alternative config"
+                onClicked: {
+                    ConfigEngine.unloadConfig(ConfigEngine.Project)
+                }
             }
         }
+
     }
 
     Component.onCompleted: {

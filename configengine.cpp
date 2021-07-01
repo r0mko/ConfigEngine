@@ -1,10 +1,10 @@
-#include <QDebug>
-#include <QJsonDocument>
-#include <QFile>
-#include <QQmlEngine>
-#include <QQmlContext>
+#include <QtCore/QDebug>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QFile>
+#include <QtQml/QQmlEngine>
+#include <QtQml/QQmlContext>
 
-#include <private/qmetaobjectbuilder_p.h>
+#include <QtCore/private/qmetaobjectbuilder_p.h>
 
 #include "configengine.h"
 #include "jsonqobject.h"

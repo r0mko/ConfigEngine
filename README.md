@@ -14,10 +14,10 @@ To access actual values, `ConfigEngine` also exposes a global context property `
 Configs are stored in JSON format. Thus, for a config like:
 ```json
 {
-	"colors": {
-		"defaultBackground": "#ffffff",
-		"defaultText": "#000000",
-	}
+    "colors": {
+        "defaultBackground": "#ffffff",
+        "defaultText": "#000000",
+    }
 }
 ```
 it is possible to access the values in QML through `Config.colors.defaultBackground` and `Config.colors.defaultText`.

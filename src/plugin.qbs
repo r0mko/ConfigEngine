@@ -1,29 +1,29 @@
 import qbs
 
 DynamicLibrary {
-	Depends { name: 'bundle' }
-	Depends {
-		name: 'Qt'
-		submodules: ['core', 'core-private', 'gui', 'qml']
-	}
+    Depends { name: 'bundle' }
+    Depends {
+        name: 'Qt'
+        submodules: ['core', 'core-private', 'gui', 'qml']
+    }
 
-	name: 'configplugin'
+    name: 'configplugin'
 
-	Qt.qml.importName: 'r0mko.config'
-	Qt.qml.importVersion: '1.0'
+    Qt.qml.importName: 'r0mko.config'
+    Qt.qml.importVersion: '1.0'
 
-	cpp.includePaths: '.'
+    cpp.includePaths: '.'
 
-	files: ['*.cpp', '*.hpp']
+    files: ['*.cpp', '*.hpp']
 
-	Group {
-		files: 'qmldir'
-		qbs.install: true
-		qbs.installDir: 'r0mko/config'
-	}
+    Group {
+        files: 'qmldir'
+        qbs.install: true
+        qbs.installDir: 'r0mko/config'
+    }
 
-	bundle.isBundle: false
+    bundle.isBundle: false
 
-	install: true
-	installDir: 'r0mko/config'
+    install: true
+    installDir: 'r0mko/config'
 }

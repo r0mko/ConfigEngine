@@ -3,9 +3,9 @@
 #include <QtCore/QHash>
 #include <QtCore/QJsonObject>
 #include <QtCore/QObject>
-#include <QtQml/QQmlEngine>
 
 class JsonQObject;
+class QQmlEngine;
 
 class ConfigEngine : public QObject
 {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtQml/QQmlEngine>
 #include <QtQml/QQmlEngineExtensionPlugin>
 
 #include "ConfigEngine.hpp"

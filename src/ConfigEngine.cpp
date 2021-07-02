@@ -46,7 +46,7 @@ void ConfigEngine::unloadConfig(ConfigEngine::ConfigLevel level)
 void ConfigEngine::clear()
 {
     m_root.clear();
-    m_qmlEngine->rootContext()->setContextProperty("Config", m_root.object);
+    resetContextProperty();
     emit rootChanged();
 }
 
@@ -77,7 +77,7 @@ void ConfigEngine::setProperty(const QString &key, QVariant value, ConfigEngine:
 void ConfigEngine::setQmlEngine(QQmlEngine *qmlEngine)
 {
     m_qmlEngine = qmlEngine;
-    m_qmlEngine->rootContext()->setContextProperty("Config", m_root.object);
+    resetContextProperty();
 }
 
 QObject *ConfigEngine::root() const
@@ -106,12 +106,17 @@ void ConfigEngine::updateTree(ConfigEngine::ConfigLevel level)
         m_root.clear();
         m_root.setJsonObject(m_data[level]);
         emit rootChanged();
-        if (m_qmlEngine) {
-            m_qmlEngine->rootContext()->setContextProperty("Config", m_root.object);
-        }
+        resetContextProperty();
     } else {
         // update with new properties
         m_root.updateJsonObject(m_data[level], level);
+    }
+}
+
+void ConfigEngine::resetContextProperty()
+{
+    if (m_qmlEngine) {
+        m_qmlEngine->rootContext()->setContextProperty("$Config", m_root.object);
     }
 }
 

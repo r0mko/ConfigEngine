@@ -43,6 +43,8 @@ signals:
 private:
     friend class JsonQObject;
 
+	void resetContextProperty();
+
     struct NamedValueGroup
     {
         NamedValueGroup(const QString &key, QVariant value);

@@ -1,11 +1,11 @@
 #pragma once
 
-#include <QObject>
-#include <QJsonObject>
-#include <QHash>
+#include <QtCore/QHash>
+#include <QtCore/QJsonObject>
+#include <QtCore/QObject>
+#include <QtQml/QQmlEngine>
 
-class QQmlEngine;
-class JSONQObject;
+class JsonQObject;
 
 class ConfigEngine : public QObject
 {
@@ -41,7 +41,7 @@ signals:
     void rootChanged();
 
 private:
-    friend class JSONQObject;
+    friend class JsonQObject;
 
     struct NamedValueGroup
     {
@@ -58,7 +58,7 @@ private:
         QList<Node*> childNodes;
         QList<NamedValueGroup> properties;
 
-        JSONQObject *object = nullptr;
+        JsonQObject *object = nullptr;
 
         const QVariant &valueAt(int index) const;
 

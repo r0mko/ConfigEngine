@@ -1,13 +1,13 @@
 #include <QtCore/QDebug>
-#include <QtCore/QJsonDocument>
 #include <QtCore/QFile>
-#include <QtQml/QQmlEngine>
+#include <QtCore/QJsonDocument>
 #include <QtQml/QQmlContext>
+#include <QtQml/QQmlEngine>
 
 #include <QtCore/private/qmetaobjectbuilder_p.h>
 
-#include "configengine.h"
-#include "jsonqobject.h"
+#include "ConfigEngine.hpp"
+#include "JsonQObject.hpp"
 
 ConfigEngine::ConfigEngine(QObject *parent)
     : QObject(parent)
@@ -187,7 +187,7 @@ void ConfigEngine::Node::createObject()
         object->deleteLater();
     }
 
-    object = new JSONQObject(mo, this, parent ? parent->object : nullptr);
+    object = new JsonQObject(mo, this, parent ? parent->object : nullptr);
 }
 
 void ConfigEngine::Node::setJsonObject(QJsonObject object)

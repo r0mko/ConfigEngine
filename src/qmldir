@@ -1,0 +1,3 @@
+module r0mko.config
+plugin configplugin
+classname ConfigPlugin

@@ -1,13 +1,14 @@
-#include "jsonqobject.h"
-#include <QMetaProperty>
+#include "JsonQObject.hpp"
 
-JSONQObject::JSONQObject(QObject *parent)
+#include <QtCore/QMetaProperty>
+
+JsonQObject::JsonQObject(QObject *parent)
     : QObject(parent)
 {
 
 }
 
-JSONQObject::JSONQObject(QMetaObject *mo, ConfigEngine::Node *node, QObject *parent)
+JsonQObject::JsonQObject(QMetaObject *mo, ConfigEngine::Node *node, QObject *parent)
     : QObject(parent),
       m_metaObject(mo),
       m_node(node)
@@ -15,12 +16,12 @@ JSONQObject::JSONQObject(QMetaObject *mo, ConfigEngine::Node *node, QObject *par
     m_metaObject->d.static_metacall = staticMetaCallImpl;
 }
 
-JSONQObject::~JSONQObject()
+JsonQObject::~JsonQObject()
 {
-    free(m_metaObject); // metaobject is unique for each JSONQObject
+    free(m_metaObject); // metaobject is unique for each JsonQObject
 }
 
-int JSONQObject::qt_metacall(QMetaObject::Call call, int id, void **arguments)
+int JsonQObject::qt_metacall(QMetaObject::Call call, int id, void **arguments)
 {
     switch (call) {
     case QMetaObject::ReadProperty:
@@ -35,14 +36,14 @@ int JSONQObject::qt_metacall(QMetaObject::Call call, int id, void **arguments)
     return -1;
 }
 
-const QMetaObject *JSONQObject::metaObject() const
+const QMetaObject *JsonQObject::metaObject() const
 {
     return m_metaObject;
 }
 
-void JSONQObject::staticMetaCallImpl(QObject *object, QMetaObject::Call call, int id, void **arguments)
+void JsonQObject::staticMetaCallImpl(QObject *object, QMetaObject::Call call, int id, void **arguments)
 {
-    JSONQObject *obj = reinterpret_cast<JSONQObject*>(object);
+    JsonQObject *obj = reinterpret_cast<JsonQObject*>(object);
     switch (call) {
     case QMetaObject::ReadProperty:
     case QMetaObject::WriteProperty:
@@ -54,14 +55,14 @@ void JSONQObject::staticMetaCallImpl(QObject *object, QMetaObject::Call call, in
     obj->metacallImpl(call, id, arguments);
 }
 
-void JSONQObject::notifyPropertyUpdate(int id)
+void JsonQObject::notifyPropertyUpdate(int id)
 {
     id += m_metaObject->propertyOffset();
     int sig_id = m_metaObject->property(id).notifySignalIndex();
     emitSignalHelper(sig_id, QVariantList());
 }
 
-void JSONQObject::emitSignalHelper(int signalIndex, QVariantList arguments)
+void JsonQObject::emitSignalHelper(int signalIndex, QVariantList arguments)
 {
     QVector<void*> args;
     args.append(0);
@@ -71,7 +72,7 @@ void JSONQObject::emitSignalHelper(int signalIndex, QVariantList arguments)
     emitSignal(signalIndex, args.data());
 }
 
-void JSONQObject::emitSignal(int index, void **arguments)
+void JsonQObject::emitSignal(int index, void **arguments)
 {
     //    qDebug() << "Emitting signal id" << index << mo.method(index).methodSignature() << "in thread" << QThread::currentThread();
     const QMetaObject *m = m_metaObject;
@@ -83,7 +84,7 @@ void JSONQObject::emitSignal(int index, void **arguments)
     QMetaObject::activate(this, m, loc_id, arguments);
 }
 
-void JSONQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
+void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
 {
     switch (call) {
     case QMetaObject::ResetProperty:

@@ -2,8 +2,8 @@ import QtQuick 2.12
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 1.2
 import QtQuick.Window 2.12
-import Test 1.0
 
+import r0mko.config 1.0
 
 Window {
     id: root
@@ -61,9 +61,5 @@ Window {
     Component.onCompleted: {
         ConfigEngine.loadConfig(":/testConfig.json", ConfigEngine.Global)
         console.warn("Config.myName", Config.myName)
-
     }
-
 }
-
-

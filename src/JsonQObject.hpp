@@ -1,16 +1,16 @@
-#ifndef JSONQOBJECTBUILDER_H
-#define JSONQOBJECTBUILDER_H
+#pragma once
 
-#include <QObject>
-#include <QJsonObject>
-#include "configengine.h"
+#include <QtCore/QJsonObject>
+#include <QtCore/QObject>
 
-class JSONQObject : public QObject
+#include "ConfigEngine.hpp"
+
+class JsonQObject : public QObject
 {
 public:
-    JSONQObject(QObject *parent = nullptr);
-    JSONQObject(QMetaObject *mo, ConfigEngine::Node *node, QObject *parent = nullptr);
-    virtual ~JSONQObject();
+    JsonQObject(QObject *parent = nullptr);
+    JsonQObject(QMetaObject *mo, ConfigEngine::Node *node, QObject *parent = nullptr);
+    virtual ~JsonQObject();
     virtual int qt_metacall(QMetaObject::Call call, int id, void **arguments);
     virtual const QMetaObject *metaObject() const;
 
@@ -30,6 +30,4 @@ private:
     QVector<QVariant> m_propertyCache;
 };
 
-Q_DECLARE_METATYPE(JSONQObject*)
-
-#endif // JSONQOBJECTBUILDER_H
+Q_DECLARE_METATYPE(JsonQObject*)

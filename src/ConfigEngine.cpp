@@ -1,13 +1,13 @@
-#include <QDebug>
-#include <QJsonDocument>
-#include <QFile>
-#include <QQmlEngine>
-#include <QQmlContext>
+#include <QtCore/QDebug>
+#include <QtCore/QFile>
+#include <QtCore/QJsonDocument>
+#include <QtQml/QQmlContext>
+#include <QtQml/QQmlEngine>
 
-#include <private/qmetaobjectbuilder_p.h>
+#include <QtCore/private/qmetaobjectbuilder_p.h>
 
-#include "configengine.h"
-#include "jsonqobject.h"
+#include "ConfigEngine.hpp"
+#include "JsonQObject.hpp"
 
 ConfigEngine::ConfigEngine(QObject *parent)
     : QObject(parent)
@@ -46,7 +46,7 @@ void ConfigEngine::unloadConfig(ConfigEngine::ConfigLevel level)
 void ConfigEngine::clear()
 {
     m_root.clear();
-    m_qmlEngine->rootContext()->setContextProperty("Config", m_root.object);
+    resetContextProperty();
     emit rootChanged();
 }
 
@@ -77,7 +77,7 @@ void ConfigEngine::setProperty(const QString &key, QVariant value, ConfigEngine:
 void ConfigEngine::setQmlEngine(QQmlEngine *qmlEngine)
 {
     m_qmlEngine = qmlEngine;
-    m_qmlEngine->rootContext()->setContextProperty("Config", m_root.object);
+    resetContextProperty();
 }
 
 QObject *ConfigEngine::root() const
@@ -106,12 +106,17 @@ void ConfigEngine::updateTree(ConfigEngine::ConfigLevel level)
         m_root.clear();
         m_root.setJsonObject(m_data[level]);
         emit rootChanged();
-        if (m_qmlEngine) {
-            m_qmlEngine->rootContext()->setContextProperty("Config", m_root.object);
-        }
+        resetContextProperty();
     } else {
         // update with new properties
         m_root.updateJsonObject(m_data[level], level);
+    }
+}
+
+void ConfigEngine::resetContextProperty()
+{
+    if (m_qmlEngine) {
+        m_qmlEngine->rootContext()->setContextProperty("$Config", m_root.object);
     }
 }
 
@@ -187,7 +192,7 @@ void ConfigEngine::Node::createObject()
         object->deleteLater();
     }
 
-    object = new JSONQObject(mo, this, parent ? parent->object : nullptr);
+    object = new JsonQObject(mo, this, parent ? parent->object : nullptr);
 }
 
 void ConfigEngine::Node::setJsonObject(QJsonObject object)

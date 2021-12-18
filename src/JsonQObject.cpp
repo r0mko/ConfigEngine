@@ -8,7 +8,7 @@ JsonQObject::JsonQObject(QObject *parent)
 
 }
 
-JsonQObject::JsonQObject(QMetaObject *mo, ConfigEngine::Node *node, QObject *parent)
+JsonQObject::JsonQObject(QMetaObject *mo, Node *node, QObject *parent)
     : QObject(parent),
       m_metaObject(mo),
       m_node(node)
@@ -136,7 +136,7 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
         break;
     }
     case QMetaObject::WriteProperty: {
-        qWarning() << "Write properties not supported";
+        qWarning() << "Write properties not supported (yet)";
         break;
     }
     default:

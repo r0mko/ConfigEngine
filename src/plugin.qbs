@@ -14,7 +14,12 @@ DynamicLibrary {
 
     cpp.includePaths: '.'
 
-    files: ['*.cpp', '*.hpp']
+    files: [
+        "private/node.cpp",
+        "private/node.h",
+        '*.cpp',
+        '*.hpp',
+    ]
 
     Group {
         files: 'qmldir'

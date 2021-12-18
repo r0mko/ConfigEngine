@@ -4,12 +4,12 @@
 #include <QtCore/QObject>
 
 #include "ConfigEngine.hpp"
-
+#include "private/node.h"
 class JsonQObject : public QObject
 {
 public:
     JsonQObject(QObject *parent = nullptr);
-    JsonQObject(QMetaObject *mo, ConfigEngine::Node *node, QObject *parent = nullptr);
+    JsonQObject(QMetaObject *mo, Node *node, QObject *parent = nullptr);
     virtual ~JsonQObject();
     virtual int qt_metacall(QMetaObject::Call call, int id, void **arguments);
     virtual const QMetaObject *metaObject() const;
@@ -25,7 +25,7 @@ private:
     void metacallImpl(QMetaObject::Call call, int id, void **arguments);
 
     QMetaObject *m_metaObject = nullptr;
-    ConfigEngine::Node *m_node = nullptr;
+    Node *m_node = nullptr;
 
     QVector<QVariant> m_propertyCache;
 };

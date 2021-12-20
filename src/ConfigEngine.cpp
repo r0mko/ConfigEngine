@@ -88,26 +88,27 @@ void ConfigEngine::setProperty(const QString &key, QVariant value, ConfigEngine:
     if (level < 0 || level >= ConfigEngine::LevelsCount) {
         return;
     }
-    QStringList parts = key.split(".");
-    Node *n = &m_root;
     int propIdx = -1;
-    while (n) {
-        if (parts.size() == 1) {
-            propIdx = n->indexOfProperty(parts.last());
-            break;
-        } else {
-            int childIdx = n->indexOfChild(parts.takeFirst());
-            if (childIdx == -1) {
-                n = nullptr;
-            } else {
-                n = n->childNodes[childIdx];
-            }
-        }
-    }
+
+    Node *n = getNodeHelper(key, propIdx);
     if (propIdx != -1) {
         n->updateProperty(propIdx, level, value);
         setModifiedFlag(level);
     }
+}
+
+QVariant ConfigEngine::getProperty(const QString &key, ConfigLevel level)
+{
+    if (level < 0 || level >= ConfigEngine::LevelsCount) {
+        return QVariant();
+    }
+    int propIdx = -1;
+
+    Node *n = getNodeHelper(key, propIdx);
+    if (propIdx != -1) {
+        return n->properties[propIdx].values[level];
+    }
+    return QVariant();
 }
 
 void ConfigEngine::setQmlEngine(QQmlEngine *qmlEngine)
@@ -189,6 +190,28 @@ void ConfigEngine::resetContextProperty()
     if (m_qmlEngine) {
         m_qmlEngine->rootContext()->setContextProperty("$Config", m_root.object);
     }
+}
+
+Node *ConfigEngine::getNodeHelper(const QString &key, int &indexOfProperty)
+{
+    QStringList parts = key.split(".");
+    Node *n = &m_root;
+    int propIdx = -1;
+    while (n) {
+        if (parts.size() == 1) {
+            propIdx = n->indexOfProperty(parts.last());
+            break;
+        } else {
+            int childIdx = n->indexOfChild(parts.takeFirst());
+            if (childIdx == -1) {
+                n = nullptr;
+            } else {
+                n = n->childNodes[childIdx];
+            }
+        }
+    }
+    indexOfProperty = propIdx;
+    return n;
 }
 
 bool ConfigEngine::globalConfigModified() const

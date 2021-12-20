@@ -17,8 +17,6 @@ struct Node
         const QVariant &value() const;
         int setValue(const QVariant &value);
         void writeValue(const QVariant &value, int level);
-
-        bool modified = false;
     };
 
     QString name;

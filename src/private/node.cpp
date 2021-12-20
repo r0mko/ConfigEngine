@@ -39,7 +39,6 @@ void Node::NamedValueGroup::writeValue(const QVariant &value, int level)
 {
     if (level >= 0 && level < ConfigEngine::LevelsCount && values[level] != value) {
         values[level] = value;
-        modified = true;
     }
 }
 

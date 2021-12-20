@@ -24,6 +24,25 @@ const QVariant &Node::NamedValueGroup::value() const
     return invalid;
 }
 
+int Node::NamedValueGroup::setValue(const QVariant &value)
+{
+    for(int i = ConfigEngine::LevelsCount - 1; i >= ConfigEngine::Global; --i) {
+        if (values[i].isValid()) {
+            values[i] = value;
+            return i;
+        }
+    }
+    return -1;
+}
+
+void Node::NamedValueGroup::writeValue(const QVariant &value, int level)
+{
+    if (level >= 0 && level < ConfigEngine::LevelsCount && values[level] != value) {
+        values[level] = value;
+        modified = true;
+    }
+}
+
 void Node::createObject()
 {
     QMetaObjectBuilder b;
@@ -69,9 +88,8 @@ void Node::createObject()
         }
         QByteArray pname = it->key.toLatin1();
         QMetaPropertyBuilder pb = b.addProperty(pname, type);
-        qDebug() << "Added property" << type << pname;
         pb.setStdCppSet(false);
-        pb.setWritable(false);
+        pb.setWritable(true);
         QByteArray sig(pname + "Changed()");
         QMetaMethodBuilder mb = b.addSignal(sig);
         mb.setReturnType("void");
@@ -100,7 +118,6 @@ void Node::setJsonObject(QJsonObject object)
     QMap<QString, QJsonObject> objects;
     for (auto it = object.begin(); it != object.end(); ++it) {
         if (!it.value().isObject()) {
-            qDebug() << "Adding JSON prop" << it.key() << "type" << it.value().type();
             properties.append(NamedValueGroup(it.key(), it.value().toVariant()));
         } else {
             objects[it.key()] = it.value().toObject();
@@ -108,6 +125,7 @@ void Node::setJsonObject(QJsonObject object)
     }
     for (auto it = objects.begin(); it != objects.end(); ++it) {
         Node *n = new Node();
+        n->engine = engine;
         n->name = it.key();
         childNodes.append(n);
         n->setJsonObject(it.value());
@@ -116,14 +134,37 @@ void Node::setJsonObject(QJsonObject object)
     createObject();
 }
 
-void Node::updateJsonObject(QJsonObject object, int level)
+QJsonObject Node::toJsonObject(int level) const
+{
+    QJsonObject ret;
+    for (const auto &g : properties) {
+        if (level == -1) {
+            ret[g.key] = QJsonValue::fromVariant(g.value());
+        } else if (g.values.size() > level) {
+            QVariant v = g.values[level];
+            if (v.isValid()) {
+                ret[g.key] = QJsonValue::fromVariant(v);
+            }
+        }
+    }
+    for (const Node *n : childNodes) {
+        QJsonObject obj = n->toJsonObject(level);
+        if (!obj.isEmpty()) {
+            ret[n->name] = obj;
+        }
+    }
+    return ret;
+}
+
+void Node::updateJsonObject(QJsonObject object, int level, ConfigEngine *engine)
 {
     QMap<QString, QJsonObject> objects;
     for (auto it = object.begin(); it != object.end(); ++it) {
         if (!it.value().isObject()) {
             auto ii = std::find_if(properties.begin(), properties.end(), [&](const NamedValueGroup &v) { return v.key == it.key();});
             if (ii == properties.end()) {
-                qWarning() << "Property" << fullPropertyName(it.key()) << "does not exist!";
+                QString msg = QString("Property %1 does not exist in the global config").arg(fullPropertyName(it.key()));
+                engine->setErrorString(msg);
                 continue;
             }
             int id = std::distance(properties.begin(), ii);
@@ -135,10 +176,11 @@ void Node::updateJsonObject(QJsonObject object, int level)
     for (auto it = objects.begin(); it != objects.end(); ++it) {
         auto ii = std::find_if(childNodes.begin(), childNodes.end(), [&](const Node *node) { return node->name == it.key();});
         if (ii == childNodes.end()) {
-            qWarning() << "Property" << fullPropertyName(it.key()) << "does not exist!";
+            QString msg = QString("Property %1 does not exist in the global config").arg(fullPropertyName(it.key()));
+            engine->setErrorString(msg);
             continue;
         }
-        (*ii)->updateJsonObject(it.value(), level);
+        (*ii)->updateJsonObject(it.value(), level, engine);
     }
 }
 
@@ -176,7 +218,7 @@ void Node::clear()
     properties.clear();
     name.clear();
 
-    for (auto child : childNodes) {
+    for (auto &child : childNodes) {
         child->clear();
     }
     qDeleteAll(childNodes);
@@ -188,7 +230,7 @@ void Node::unload(int level)
     for (int i = 0; i < properties.size(); ++i) {
         clearProperty(i, level);
     }
-    for (auto n : childNodes) {
+    for (auto &n : childNodes) {
         n->unload(level);
     }
 }
@@ -223,4 +265,9 @@ QString Node::fullPropertyName(const QString &property) const
     }
     pl.append(property);
     return pl.join(".");
+}
+
+void Node::notifyChange(int level)
+{
+    engine->setModifiedFlag(ConfigEngine::ConfigLevel(level));
 }

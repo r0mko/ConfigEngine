@@ -5,6 +5,7 @@
 
 #include "ConfigEngine.hpp"
 #include "private/node.h"
+
 class JsonQObject : public QObject
 {
 public:
@@ -26,8 +27,6 @@ private:
 
     QMetaObject *m_metaObject = nullptr;
     Node *m_node = nullptr;
-
-    QVector<QVariant> m_propertyCache;
 };
 
 Q_DECLARE_METATYPE(JsonQObject*)

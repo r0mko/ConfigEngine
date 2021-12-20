@@ -1,12 +1,19 @@
 {
 	"myName": "Roman Novikov",
 	"editor": {
-		"backgroundColor": "#ffffff",
-		"fontSize": 18,
-		"fontFamily": "Helvetica",
+		"colors": {
+			"backgroundColor": "#ffffff",
+			"labelEnabledColor": "#000000",
+			"labelDisabledColor": "#888888",
+			"textDefaultColor": "#000080"
+
+		},
+		"fontSize": 40,
+		"fontFamily": "Times New Roman",
 		"enableUndo": true,
 		"forceUpdate": false,
-		"rotation": 0
+		"rotation": 0.0,
+		"altRotation": 0.0
 	},
 	"fonts": {
 		"preloadSystemFonts": true,

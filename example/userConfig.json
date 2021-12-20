@@ -2,7 +2,12 @@
     "myName": "r0mko",
     "nonExistentProperty": "foo",
     "editor": {
-        "backgroundColor": "#eeeeee",
+        "colors": {
+            "backgroundColor": "#333333",
+            "labelEnabledColor": "#ffffff",
+            "labelDisabledColor": "#888888",
+            "textDefaultColor": "#ffad00"
+        },
         "fontSize": 54,
         "rotation": 30.0,
         "fontFamily": "Arial"

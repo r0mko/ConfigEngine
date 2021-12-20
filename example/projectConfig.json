@@ -1,0 +1,24 @@
+{
+    "myName": "The Project config",
+    "editor": {
+        "colors": {
+            "backgroundColor": "#000000",
+            "labelEnabledColor": "#ffdd80",
+            "labelDisabledColor": "#800000",
+            "textDefaultColor": "#ffad00"
+        },
+        "fontSize": 70,
+        "rotation": -45.0,
+        "fontFamily": "Comic Sans MS"
+    },
+    "colors":{
+        "palette":{
+            "black": "#000000",
+            "blue": "#0000ff",
+            "red": "#ff0000",
+            "magenta": "#ff00ff",
+            "green": "#00ff00",
+            "yellow":"#ffbb00"
+        }
+    }
+}

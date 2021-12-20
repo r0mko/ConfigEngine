@@ -103,7 +103,6 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
     case QMetaObject::ReadProperty: {
         int index = id - m_metaObject->propertyOffset();
         if (index < 0) {
-            qWarning() << "Index < 0";
             m_metaObject->superClass()->metacall(this, call, id, arguments);
             return;
         }
@@ -136,7 +135,16 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
         break;
     }
     case QMetaObject::WriteProperty: {
-        qWarning() << "Write properties not supported (yet)";
+        int index = id - m_metaObject->propertyOffset();
+        if (index < 0) {
+            m_metaObject->superClass()->metacall(this, call, id, arguments);
+            return;
+        }
+        QVariant value = QVariant(m_metaObject->property(id).userType(), arguments[0]);
+        if (m_node->properties.size() > index) {
+            m_node->notifyChange(m_node->properties[index].setValue(value));
+            notifyPropertyUpdate(index);
+        }
         break;
     }
     default:

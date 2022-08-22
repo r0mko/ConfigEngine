@@ -1,8 +1,9 @@
 <RCC>
     <qresource prefix="/">
-        <file>main.qml</file>
+        <file>main_qt5.qml</file>
         <file>userConfig.json</file>
         <file>projectConfig.json</file>
         <file>globalConfig.json</file>
+        <file>main_qt6.qml</file>
     </qresource>
 </RCC>

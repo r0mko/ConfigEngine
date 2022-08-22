@@ -88,11 +88,13 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
 {
     switch (call) {
     case QMetaObject::ResetProperty:
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     case QMetaObject::QueryPropertyDesignable:
     case QMetaObject::QueryPropertyScriptable:
     case QMetaObject::QueryPropertyStored:
     case QMetaObject::QueryPropertyEditable:
     case QMetaObject::QueryPropertyUser:
+#endif
     case QMetaObject::CreateInstance:
     case QMetaObject::IndexOfMethod:
     case QMetaObject::RegisterPropertyMetaType:
@@ -115,6 +117,7 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
         void *a = arguments[0];
 
         if (isPod) {
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
             int ptype = m_metaObject->property(id).userType();
             const QVariant &prop = m_node->valueAt(index);//properties[index].second;
             if (ptype != prop.userType()) {
@@ -128,7 +131,21 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
             } else {
                 QMetaType::construct(ptype, arguments[0], prop.constData());
             }
-
+#else
+            QMetaType ptype = m_metaObject->property(id).metaType();
+            const QVariant &prop = m_node->valueAt(index);
+            if (ptype != prop.metaType()) {
+                if (ptype == QMetaType::fromType<qlonglong>()) {
+                    qlonglong val = prop.toLongLong();
+                    ptype.construct(arguments[0], &val);
+                } else if (ptype == QMetaType::fromType<double>()) {
+                    double val = prop.toDouble();
+                    ptype.construct(arguments[0], &val);
+                }
+            } else {
+                ptype.construct(arguments[0], prop.constData());
+            }
+#endif
         } else {
             *reinterpret_cast<QObject**>(a) = m_node->childNodes[index]->object;
         }
@@ -140,7 +157,11 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
             m_metaObject->superClass()->metacall(this, call, id, arguments);
             return;
         }
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         QVariant value = QVariant(m_metaObject->property(id).userType(), arguments[0]);
+#else
+        QVariant value = QVariant(m_metaObject->property(id).metaType(), arguments[0]);
+#endif
         if (m_node->properties.size() > index) {
             m_node->notifyChange(m_node->properties[index].setValue(value));
             notifyPropertyUpdate(index);

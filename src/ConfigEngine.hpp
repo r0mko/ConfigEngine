@@ -79,7 +79,7 @@ signals:
 
 private:
     friend class JsonQObject;
-    friend class Node;
+    friend struct Node;
 
 	void resetContextProperty();
     Node *getNodeHelper(const QString &key, int &indexOfProperty);

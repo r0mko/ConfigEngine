@@ -62,9 +62,11 @@ void Node::createObject()
         b.setClassName("RootObject");
     }
     b.setSuperClass(&QObject::staticMetaObject);
+
     // add POD properties first
     for (auto it = properties.begin(); it != properties.end(); ++it) {
         QByteArray type;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         switch (it->values[ConfigEngine::Global].type()) {
         case QVariant::Bool:
             type = "bool";
@@ -85,6 +87,29 @@ void Node::createObject()
             qWarning() << "Unsupported property type" << it->key << it->values[ConfigEngine::Global].type();
             continue;
         }
+#else
+        switch (it->values[ConfigEngine::Global].typeId()) {
+        case QMetaType::Bool:
+            type = "bool";
+            break;
+        case QMetaType::Double:
+            type = "double";
+            break;
+        case QMetaType::QString:
+            type = "QString";
+            break;
+        case QMetaType::QVariantList:
+            type = "QVariantList";
+            break;
+        case QMetaType::LongLong:
+            type = "qlonglong";
+            break;
+        default:
+            qWarning() << "Unsupported property type" << it->key << it->values[ConfigEngine::Global].typeName();
+            continue;
+        }
+#endif
+
         QByteArray pname = it->key.toLatin1();
         QMetaPropertyBuilder pb = b.addProperty(pname, type);
         pb.setStdCppSet(false);

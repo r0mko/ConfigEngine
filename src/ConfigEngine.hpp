@@ -12,85 +12,77 @@ class ConfigEngine : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QObject* config READ config NOTIFY configChanged)
-    Q_PROPERTY(StateFlags state READ state NOTIFY stateChanged)
-    Q_PROPERTY(QString errorString READ errorString NOTIFY errorStringChanged)
-
-    Q_PROPERTY(bool globalConfigModified READ globalConfigModified NOTIFY globalConfigModifiedChanged)
-    Q_PROPERTY(bool userConfigModified READ userConfigModified NOTIFY userConfigModifiedChanged)
-    Q_PROPERTY(bool projectConfigModified READ projectConfigModified NOTIFY projectConfigModifiedChanged)
+    Q_PROPERTY(bool readonly READ readonly WRITE setReadonly NOTIFY readonlyChanged)
+    Q_PROPERTY(Status status READ status NOTIFY statusChanged)
 
 public:
-    enum ConfigLevel {
-        Global = 0,
-        User,
-        Project,
-        LevelsCount,
-        MergeLevels = -1
-    };
-    Q_ENUM(ConfigLevel)
-
-    enum StateFlag {
-        Error                   = 0x01,
-        GlobalConfigLoaded      = 0x02,
-        UserConfigLoaded        = 0x04,
-        ProjectConfigLoaded     = 0x08,
-        GlobalConfigModified    = 0x10,
-        UserConfigModified      = 0x20,
-        ProjectConfigModified   = 0x40
-    };
-    Q_DECLARE_FLAGS(StateFlags, StateFlag);
-    Q_FLAG(StateFlags);
-
     ConfigEngine(QObject *parent = nullptr);
-
     virtual ~ConfigEngine();
+
+    enum Status
+    {
+        Null,
+        Error,
+        ConfigLoaded,
+        ConfigModified
+    };
+    Q_ENUM(Status);
 
     QObject *config() const;
 
     void setQmlEngine(QQmlEngine *qmlEngine);
 
-    bool globalConfigModified() const;
-    bool userConfigModified() const;
-    bool projectConfigModified() const;
+    Status status() const;
+    bool deferChangeSignals() const;
 
-    const StateFlags &state() const;
-
-    const QString &errorString() const;
-    void setErrorString(const QString &errorString);
+    bool readonly() const;
+    void setReadonly(bool newReadonly);
 
 public slots:
-    void loadConfig(const QString &path, ConfigLevel level = Global);
-    void loadData(const QByteArray &data, ConfigLevel level = Global);
-    void writeConfig(const QString &path, ConfigLevel level = Global);
-    void unloadConfig(ConfigLevel level);
+    // loads config. If desired index is 0 or no other configs were loaded before, the loaded file will be treated as a root config
+    QString loadLayer(const QString &path, int desiredIndex = -1);
+    void writeConfig(const QString &path, const QString &layer);
+    void unloadLayer(const QString &layer);
+    void activateLayer(const QString &layer);
+    void deactivateLayer(const QString &layer);
     void clear();
-    void setProperty(const QString &key, QVariant value, ConfigLevel level = Global);
-    QVariant getProperty(const QString &key, ConfigLevel level = Global);
+    void setProperty(const QString &layer, const QString &key, QVariant value);
+    QVariant getProperty(const QString &layer, const QString &key);
+
+    void beginUpdate();
+    void endUpdate();
 
 signals:
     void configChanged();
-    void globalConfigModifiedChanged();
-    void userConfigModifiedChanged();
-    void projectConfigModifiedChanged();
-    void stateChanged();
-    void warning(QString message);
-
-    void errorStringChanged();
+    void statusChanged();
+    void readonlyChanged();
 
 private:
-    friend class JsonQObject;
-    friend struct Node;
+    void setStatus(Status newStatus);
 
-	void resetContextProperty();
-    Node *getNodeHelper(const QString &key, int &indexOfProperty);
+    friend class JsonQObject;
+    friend class Node;
+
+    QJsonObject parseData(const QByteArray &data, bool *ok);
 
     Node m_root;
     QQmlEngine *m_qmlEngine = nullptr;
-    StateFlags m_state;
 
-    void updateTree(ConfigLevel level, QJsonObject data);
-    void setModifiedFlag(ConfigLevel level, bool on = true);
-    void setConfigLoadedFlag(ConfigLevel level, bool on = true);
+    struct ConfigLayer {
+        int index = -1;
+        bool active = false;
+        bool modified = false;
+        QJsonObject object;
+    };
 
-    QString m_errorString;
+    QMap<QString, ConfigLayer> m_layers;
+    Status m_status;
+    bool m_deferChangeSignals = false;
+
+    ConfigLayer &getLayer(const QString &name);
+    void updateTree(int level, QJsonObject data);
+    void checkModified();
+    QByteArray readFile(const QString &path, bool *ok);
+
+    bool m_readonly = false;
 };

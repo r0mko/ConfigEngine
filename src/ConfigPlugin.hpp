@@ -17,7 +17,6 @@ class ConfigPlugin
         qmlRegisterSingletonType<ConfigEngine>(uri, 1, 0, "ConfigEngine", [](QQmlEngine *engine, QJSEngine *) -> QObject*
         {
             auto ret = new ConfigEngine{engine};
-            engine->rootContext()->setContextProperty("$Config", ret->config());
             ret->setQmlEngine(engine);
             return ret;
         });

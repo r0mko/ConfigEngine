@@ -147,7 +147,7 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
             }
 #endif
         } else {
-            *reinterpret_cast<QObject**>(a) = m_node->childNodes[index]->object;
+            *reinterpret_cast<QObject**>(a) = m_node->childAt(index)->object();
         }
         break;
     }
@@ -162,8 +162,9 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
 #else
         QVariant value = QVariant(m_metaObject->property(id).metaType(), arguments[0]);
 #endif
+        qDebug() << "Write property" << index << "val" << value;
         if (m_node->properties.size() > index) {
-            m_node->notifyChange(m_node->properties[index].setValue(value));
+            m_node->properties[index].setValue(value);
             notifyPropertyUpdate(index);
         }
         break;

@@ -2,7 +2,7 @@
     "myName": "The Project config",
     "editor": {
         "colors": {
-            "backgroundColor": "#000000",
+            "backgroundColor": "#444444",
             "labelEnabledColor": "#ffdd80",
             "labelDisabledColor": "#800000",
             "textDefaultColor": "#ffad00"

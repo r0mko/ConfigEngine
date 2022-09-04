@@ -8,53 +8,53 @@
 Node::NamedValueGroup::NamedValueGroup(const QString &key, QVariant value)
     : key(key)
 {
-    values.reserve(ConfigEngine::LevelsCount);
-    values.resize(ConfigEngine::LevelsCount);
-    values[ConfigEngine::Global] = value;
+    values[0] = value;
 }
 
 const QVariant &Node::NamedValueGroup::value() const
 {
     static const QVariant invalid;
-    for(int i = ConfigEngine::LevelsCount - 1; i >= ConfigEngine::Global; --i) {
-        if (values[i].isValid()) {
-            return values[i];
-        }
-    }
+    auto it = values.cend();
+    --it;
+    return *it;
+//    while(it != values.cbegin()) {
+//        --it;
+//        if (it->isValid()) {
+//            return *it;
+//        }
+//    }
     return invalid;
 }
 
 int Node::NamedValueGroup::setValue(const QVariant &value)
 {
-    for(int i = ConfigEngine::LevelsCount - 1; i >= ConfigEngine::Global; --i) {
-        if (values[i].isValid()) {
-            values[i] = value;
-            return i;
-        }
+    if (values.isEmpty()) {
+        return -1;
     }
-    return -1;
+    auto it = values.end();
+    --it;
+    it.value() = value;
+    return it.key();
 }
 
 void Node::NamedValueGroup::writeValue(const QVariant &value, int level)
 {
-    if (level >= 0 && level < ConfigEngine::LevelsCount && values[level] != value) {
-        values[level] = value;
-    }
+    values[level] = value;
 }
 
 void Node::createObject()
 {
     QMetaObjectBuilder b;
     QStringList classNameParts;
-    Node *p = parent;
-    if (!name.isEmpty()) {
-        classNameParts.append(name);
+    Node *p = m_parent;
+    if (!m_name.isEmpty()) {
+        classNameParts.append(m_name);
         classNameParts.last()[0] = classNameParts.last()[0].toUpper();
     }
     while (p) {
-        classNameParts.prepend(parent->name);
+        classNameParts.prepend(m_parent->m_name);
         classNameParts.first()[0] = classNameParts.first()[0].toUpper();
-        p = p->parent;
+        p = p->m_parent;
     }
     if (!classNameParts.isEmpty()) {
         b.setClassName(classNameParts.join("").toLatin1());
@@ -67,7 +67,7 @@ void Node::createObject()
     for (auto it = properties.begin(); it != properties.end(); ++it) {
         QByteArray type;
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-        switch (it->values[ConfigEngine::Global].type()) {
+        switch (it->values[0].type()) {
         case QVariant::Bool:
             type = "bool";
             break;
@@ -84,11 +84,11 @@ void Node::createObject()
             type = "qlonglong";
             break;
         default:
-            qWarning() << "Unsupported property type" << it->key << it->values[ConfigEngine::Global].type();
+            qWarning() << "Unsupported property type" << it->key << it->values[0].type();
             continue;
         }
 #else
-        switch (it->values[ConfigEngine::Global].typeId()) {
+        switch (it->values[0].typeId()) {
         case QMetaType::Bool:
             type = "bool";
             break;
@@ -105,7 +105,7 @@ void Node::createObject()
             type = "qlonglong";
             break;
         default:
-            qWarning() << "Unsupported property type" << it->key << it->values[ConfigEngine::Global].typeName();
+            qWarning() << "Unsupported property type" << it->key << it->values[0].typeName();
             continue;
         }
 #endif
@@ -113,15 +113,15 @@ void Node::createObject()
         QByteArray pname = it->key.toLatin1();
         QMetaPropertyBuilder pb = b.addProperty(pname, type);
         pb.setStdCppSet(false);
-        pb.setWritable(true);
+        pb.setWritable(!m_engine->readonly());
         QByteArray sig(pname + "Changed()");
         QMetaMethodBuilder mb = b.addSignal(sig);
         mb.setReturnType("void");
         pb.setNotifySignal(mb);
     }
 
-    for (auto it = childNodes.begin(); it != childNodes.end(); ++it) {
-        QByteArray pname = (*it)->name.toLatin1();
+    for (auto it = m_childNodes.begin(); it != m_childNodes.end(); ++it) {
+        QByteArray pname = (*it)->m_name.toLatin1();
         QMetaPropertyBuilder pb = b.addProperty(pname, "QObject*");
         QByteArray sig(pname + "Changed()");
         QMetaMethodBuilder mb = b.addSignal(sig);
@@ -129,16 +129,16 @@ void Node::createObject()
         pb.setNotifySignal(mb);
     }
     QMetaObject *mo = b.toMetaObject();
-    if (object) {
-        object->deleteLater();
+    if (m_object) {
+        m_object->deleteLater();
     }
 
-    object = new JsonQObject(mo, this, parent ? parent->object : nullptr);
+    m_object = new JsonQObject(mo, this, m_parent ? m_parent->m_object : nullptr);
 }
 
 void Node::setJsonObject(QJsonObject object)
 {
-    // split POD propertties from Object properties
+    // split primitive propertties and Object properties
     QMap<QString, QJsonObject> objects;
     for (auto it = object.begin(); it != object.end(); ++it) {
         if (!it.value().isObject()) {
@@ -149,11 +149,11 @@ void Node::setJsonObject(QJsonObject object)
     }
     for (auto it = objects.begin(); it != objects.end(); ++it) {
         Node *n = new Node();
-        n->engine = engine;
-        n->name = it.key();
-        childNodes.append(n);
+        n->m_engine = m_engine;
+        n->m_name = it.key();
+        m_childNodes.append(n);
         n->setJsonObject(it.value());
-        n->parent = this;
+        n->m_parent = this;
     }
     createObject();
 }
@@ -171,24 +171,24 @@ QJsonObject Node::toJsonObject(int level) const
             }
         }
     }
-    for (const Node *n : childNodes) {
+    for (const Node *n : m_childNodes) {
         QJsonObject obj = n->toJsonObject(level);
         if (!obj.isEmpty()) {
-            ret[n->name] = obj;
+            ret[n->m_name] = obj;
         }
     }
     return ret;
 }
 
-void Node::updateJsonObject(QJsonObject object, int level, ConfigEngine *engine)
+void Node::updateJsonObject(QJsonObject object, int level)
 {
     QMap<QString, QJsonObject> objects;
     for (auto it = object.begin(); it != object.end(); ++it) {
         if (!it.value().isObject()) {
             auto ii = std::find_if(properties.begin(), properties.end(), [&](const NamedValueGroup &v) { return v.key == it.key();});
             if (ii == properties.end()) {
-                QString msg = QString("Property %1 does not exist in the global config").arg(fullPropertyName(it.key()));
-                engine->setErrorString(msg);
+                QString msg = QString("Property %1 does not exist in the root config").arg(fullPropertyName(it.key()));
+                qWarning().noquote() << msg;
                 continue;
             }
             int id = std::distance(properties.begin(), ii);
@@ -198,64 +198,73 @@ void Node::updateJsonObject(QJsonObject object, int level, ConfigEngine *engine)
         }
     }
     for (auto it = objects.begin(); it != objects.end(); ++it) {
-        auto ii = std::find_if(childNodes.begin(), childNodes.end(), [&](const Node *node) { return node->name == it.key();});
-        if (ii == childNodes.end()) {
-            QString msg = QString("Property %1 does not exist in the global config").arg(fullPropertyName(it.key()));
-            engine->setErrorString(msg);
+        auto ii = std::find_if(m_childNodes.begin(), m_childNodes.end(), [&](const Node *node) { return node->m_name == it.key();});
+        if (ii == m_childNodes.end()) {
+            QString msg = QString("Property %1 does not exist in the root config").arg(fullPropertyName(it.key()));
+            qWarning().noquote() << msg;
             continue;
         }
-        (*ii)->updateJsonObject(it.value(), level, engine);
+        (*ii)->updateJsonObject(it.value(), level);
     }
 }
 
-void Node::updateProperty(int index, int level, QVariant value)
+bool Node::updateProperty(int index, int level, QVariant value)
 {
     QVariant oldValue = valueAt(index);
     properties[index].values[level] = value;
 
-    bool notify = oldValue != value;
-
-    if (notify) {
-        object->notifyPropertyUpdate(index);
+    if (oldValue != valueAt(index)) {
+        propertyChangedHelper(index);
+        return true;
     }
+    return false;
 }
 
-void Node::clearProperty(int index, int level)
+void Node::removeProperty(int index, int level)
 {
     QVariant value = valueAt(index);
-    properties[index].values[level].clear();
-    QVariant newValue = valueAt(index);
-    bool notify = newValue != value;
-
-    if (notify) {
-        object->notifyPropertyUpdate(index);
+    properties[index].values.remove(level);
+    if (value != valueAt(index)) {
+        propertyChangedHelper(index);
     }
 }
 
 void Node::clear()
 {
-    if (object) {
-        object->deleteLater();
-        object = nullptr;
+    if (m_object) {
+        m_object->deleteLater();
+        m_object = nullptr;
     }
 
     properties.clear();
-    name.clear();
+    m_name.clear();
 
-    for (auto &child : childNodes) {
+    for (auto &child : m_childNodes) {
         child->clear();
     }
-    qDeleteAll(childNodes);
-    childNodes.clear();
+    qDeleteAll(m_childNodes);
+    m_childNodes.clear();
 }
 
 void Node::unload(int level)
 {
     for (int i = 0; i < properties.size(); ++i) {
-        clearProperty(i, level);
+        removeProperty(i, level);
     }
-    for (auto &n : childNodes) {
+    for (auto &n : m_childNodes) {
         n->unload(level);
+    }
+}
+
+void Node::emitDeferredSignals()
+{
+    for (qsizetype i = 0; i < properties.size(); ++i) {
+        if (properties[i].emitPending) {
+            m_object->notifyPropertyUpdate(i);
+        }
+    }
+    for (Node *n : m_childNodes) {
+        n->emitDeferredSignals();
     }
 }
 
@@ -270,11 +279,11 @@ int Node::indexOfProperty(const QString &name) const
 
 int Node::indexOfChild(const QString &name) const
 {
-    auto it = std::find_if(childNodes.begin(), childNodes.end(), [&](const Node *n) { return n->name == name; });
-    if (it == childNodes.end()) {
+    auto it = std::find_if(m_childNodes.begin(), m_childNodes.end(), [&](const Node *n) { return n->m_name == name; });
+    if (it == m_childNodes.end()) {
         return -1;
     }
-    return std::distance(childNodes.begin(), it);
+    return std::distance(m_childNodes.begin(), it);
 }
 
 QString Node::fullPropertyName(const QString &property) const
@@ -282,16 +291,57 @@ QString Node::fullPropertyName(const QString &property) const
     QStringList pl;
     const Node *n = this;
     while (n) {
-        if (!n->name.isEmpty()) {
-            pl.prepend(n->name);
+        if (!n->m_name.isEmpty()) {
+            pl.prepend(n->m_name);
         }
-        n = n->parent;
+        n = n->m_parent;
     }
     pl.append(property);
     return pl.join(".");
 }
 
-void Node::notifyChange(int level)
+void Node::propertyChangedHelper(int index)
 {
-    engine->setModifiedFlag(ConfigEngine::ConfigLevel(level));
+    if (m_engine->deferChangeSignals()) {
+        properties[index].emitPending = true;
+    } else {
+        m_object->notifyPropertyUpdate(index);
+    }
+}
+
+JsonQObject *Node::object() const
+{
+    return m_object;
+}
+
+Node *Node::getNode(const QString &key, int *indexOfProperty)
+{
+    QStringList parts = key.split(".");
+    Node *n = this;
+    int propIdx = -1;
+    while (n) {
+        if (parts.size() == 1) {
+            propIdx = n->indexOfProperty(parts.last());
+            break;
+        } else {
+            int childIdx = n->indexOfChild(parts.takeFirst());
+            if (childIdx == -1) {
+                n = nullptr;
+            } else {
+                n = n->m_childNodes[childIdx];
+            }
+        }
+    }
+    *indexOfProperty = propIdx;
+    return n;
+}
+
+void Node::setEngine(ConfigEngine *newEngine)
+{
+    m_engine = newEngine;
+}
+
+Node *Node::childAt(qsizetype index) const
+{
+    return m_childNodes.at(index);
 }

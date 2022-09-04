@@ -10,38 +10,29 @@
 ConfigEngine::ConfigEngine(QObject *parent)
     : QObject(parent)
 {
-    m_root.engine = this;
+    m_root.setEngine(this);
 }
 
 ConfigEngine::~ConfigEngine() {}
 
-void ConfigEngine::loadData(const QByteArray &data, ConfigEngine::ConfigLevel level)
+QString getNameFromPath(const QString &path)
 {
-    QJsonParseError err;
-    QJsonDocument json = QJsonDocument::fromJson(data, &err);
-    if (err.error != QJsonParseError::NoError) {
-        QString msg = QString("Parse error: %1").arg(err.errorString());
-        setErrorString(msg);
-        m_state.setFlag(Error);
-        emit stateChanged();
-        return;
+    QUrl url = QUrl::fromLocalFile(path);
+    QStringList ret = url.adjusted(QUrl::NormalizePathSegments).fileName().split('.');
+    if (!ret.isEmpty()) {
+        return ret.first();
     }
-    if (!json.isObject()) {
-        QString msg = QString("JSON must contain an object");
-        setErrorString(msg);
-        emit warning(msg);
-        m_state.setFlag(Error);
-        emit stateChanged();
-        return; // TODO: set invalid state
-    }
-    m_state.setFlag(Error, false);
-
-    updateTree(level, json.object());
-    setConfigLoadedFlag(level, true);
+    qWarning() << "Incorrect path format" << path;
+    return QString();
 }
 
-void ConfigEngine::writeConfig(const QString &path, ConfigLevel level)
+void ConfigEngine::writeConfig(const QString &path, const QString &layer)
 {
+    auto it = m_layers.find(layer);
+    if (it->index == -1) {
+        qWarning() << "Layer" << layer << "not found";
+        return;
+    }
     QString cleanPath = path;
     if (cleanPath.startsWith("file:///")) {
         cleanPath = QUrl(cleanPath).toLocalFile();
@@ -49,202 +40,278 @@ void ConfigEngine::writeConfig(const QString &path, ConfigLevel level)
     QFile f(cleanPath);
     if (!f.open(QIODevice::WriteOnly)) {
         QString msg = QString("Failed to open file %1 for writing: %2").arg(path, f.errorString());
-        setErrorString(msg);
+        qWarning().noquote() << msg;
         return;
     }
     QJsonDocument doc;
-    doc.setObject(m_root.toJsonObject(level));
+    doc.setObject(m_root.toJsonObject(it->index));
     f.write(doc.toJson(QJsonDocument::Indented));
     f.close();
-    if (level >= 0) {
-        setModifiedFlag(level, false);
-    }
+    it->modified = false;
+    checkModified();
 }
 
-void ConfigEngine::unloadConfig(ConfigEngine::ConfigLevel level)
+void ConfigEngine::unloadLayer(const QString &layer)
 {
-    if (m_state & GlobalConfigLoaded && level == Global) {
-        QString msg = "Can't unload global config. Use clear() method instead.";
-        setErrorString(msg);
+    auto it = m_layers.find(layer);
+    if (it == m_layers.end()) {
+        qWarning() << "Layer" << layer << "not registered";
         return;
     }
+    m_root.unload(it->index);
+    m_layers.erase(it);
+}
 
-    m_root.unload(level);
-    setConfigLoadedFlag(level, false);
+void ConfigEngine::activateLayer(const QString &layer)
+{
+    auto it = m_layers.find(layer);
+    if (it == m_layers.end()) {
+        qWarning() << "Layer" << layer << "not registered";
+        return;
+    }
+    if (it->active) {
+        return;
+    }
+    it->active = true;
+    qDebug() << "Activating layer" << layer << "index" << it->index;
+    m_root.updateJsonObject(it->object, it->index);
+}
+
+void ConfigEngine::deactivateLayer(const QString &layer)
+{
+    auto it = m_layers.find(layer);
+    if (it == m_layers.end()) {
+        qWarning() << "Layer" << layer << "not registered";
+        return;
+    }
+    if (!it->active) {
+        return;
+    }
+    it->active = false;
+    qDebug() << "Deactivating layer" << layer << "index" << it->index;
+    m_root.unload(it->index);
 }
 
 void ConfigEngine::clear()
 {
     m_root.clear();
-    resetContextProperty();
     emit configChanged();
-    setConfigLoadedFlag(Global, false);
-    setConfigLoadedFlag(User, false);
-    setConfigLoadedFlag(Project, false);
 }
 
-void ConfigEngine::setProperty(const QString &key, QVariant value, ConfigEngine::ConfigLevel level)
+void ConfigEngine::setProperty(const QString &layer, const QString &key, QVariant value)
 {
-    if (level < 0 || level >= ConfigEngine::LevelsCount) {
+    int propIdx = -1;
+    Node *n = m_root.getNode(key, &propIdx);
+    auto it = m_layers.find(layer);
+    if (it == m_layers.end()) {
+        qWarning() << "Layer" << layer << "not registered";
         return;
     }
-    int propIdx = -1;
 
-    Node *n = getNodeHelper(key, propIdx);
     if (propIdx != -1) {
-        n->updateProperty(propIdx, level, value);
-        setModifiedFlag(level);
+        n->updateProperty(propIdx, it->index, value);
     }
 }
 
-QVariant ConfigEngine::getProperty(const QString &key, ConfigLevel level)
+QVariant ConfigEngine::getProperty(const QString &layer, const QString &key)
 {
-    if (level < 0 || level >= ConfigEngine::LevelsCount) {
-        return QVariant();
+    int index = 0;
+    if (!layer.isEmpty()) {
+        auto it = m_layers.find(layer);
+        if (it != m_layers.end()) {
+            qWarning() << "Layer" << layer << "not registered";
+            return QVariant();
+        }
+        index = it.value().index;
     }
     int propIdx = -1;
 
-    Node *n = getNodeHelper(key, propIdx);
+    Node *n = m_root.getNode(key, &propIdx);
     if (propIdx != -1) {
-        return n->properties[propIdx].values[level];
+        auto &vals = n->properties[propIdx].values;
+        auto it = vals.find(index);
+        if (it != vals.end()) {
+            return it.value();
+        }
     }
     return QVariant();
+}
+
+QJsonObject ConfigEngine::parseData(const QByteArray &data, bool *ok)
+{
+    QJsonParseError err;
+    QJsonDocument json = QJsonDocument::fromJson(data, &err);
+    if (err.error != QJsonParseError::NoError) {
+        QString msg = QString("Parse error: %1").arg(err.errorString());
+        qWarning().noquote() << msg;
+        setStatus(Error);
+        *ok = false;
+        return QJsonObject();
+    }
+    if (!json.isObject()) {
+        QString msg = QString("JSON must contain an object");
+        qWarning().noquote() << msg;
+        setStatus(Error);
+        *ok = false;
+        return QJsonObject(); // TODO: set invalid state
+    }
+    *ok = true;
+    return json.object();
+}
+
+ConfigEngine::ConfigLayer &ConfigEngine::getLayer(const QString &name)
+{
+    static ConfigLayer invalid;
+    auto it = m_layers.find(name);
+    if (it == m_layers.end()) {
+        qWarning() << "Layer" << name << "not found";
+        return invalid;
+    }
+    return it.operator*();
 }
 
 void ConfigEngine::setQmlEngine(QQmlEngine *qmlEngine)
 {
     m_qmlEngine = qmlEngine;
-    resetContextProperty();
 }
 
 QObject *ConfigEngine::config() const
 {
-    return m_root.object;
+    return m_root.object();
 }
 
-void ConfigEngine::loadConfig(const QString &path, ConfigEngine::ConfigLevel level)
-{
-    if (level > Global && !m_state.testFlag(GlobalConfigLoaded)) {
-        setErrorString("Global config must be loaded first");
-        return;
-    }
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly)) {
-        QString msg = QString("File %1 not found").arg(path);
-        qWarning().noquote() << msg;
-        emit warning(msg);
-        return;
-    }
-    QByteArray data = f.readAll();
-    f.close();
-    loadData(data, level);
-}
 
-void ConfigEngine::updateTree(ConfigEngine::ConfigLevel level, QJsonObject data)
+void ConfigEngine::updateTree(int level, QJsonObject data)
 {
-    if (level == Global) {
+    if (level == 0) {
         // initial config
         m_root.clear();
         m_root.setJsonObject(data);
         emit configChanged();
-        resetContextProperty();
     } else {
         // update with new properties
-        m_root.updateJsonObject(data, level, this);
+        m_root.updateJsonObject(data, level);
     }
 }
 
-void ConfigEngine::setModifiedFlag(ConfigLevel level, bool on)
+void ConfigEngine::checkModified()
 {
-    StateFlag f = StateFlag(GlobalConfigModified << level);
-    if (on != m_state.testFlag(f)) {
-        m_state.setFlag(f, on);
-        emit stateChanged();
-        switch (level) {
-        case ConfigEngine::Global:
-            emit globalConfigModifiedChanged();
-            break;
-        case ConfigEngine::User:
-            emit userConfigModifiedChanged();
-            break;
-        case ConfigEngine::Project:
-            emit projectConfigModifiedChanged();
-            break;
-        default:
-            break;
+    int c = 0;
+    for (const auto &layer : qAsConst(m_layers)) {
+        ++c;
+        if (layer.modified) {
+            setStatus(ConfigModified);
+            return;
         }
     }
-}
-
-void ConfigEngine::setConfigLoadedFlag(ConfigLevel level, bool on)
-{
-    StateFlag f = StateFlag(GlobalConfigLoaded << level);
-    if (on != m_state.testFlag(f)) {
-        m_state.setFlag(f, on);
-        emit stateChanged();
+    if (c > 0) {
+        setStatus(ConfigLoaded);
+    } else {
+        setStatus(Null);
     }
 }
 
-void ConfigEngine::resetContextProperty()
+QByteArray ConfigEngine::readFile(const QString &path, bool *ok)
 {
-    if (m_qmlEngine) {
-        m_qmlEngine->rootContext()->setContextProperty("$Config", m_root.object);
-    }
-}
+    QFile f(path);
 
-Node *ConfigEngine::getNodeHelper(const QString &key, int &indexOfProperty)
-{
-    QStringList parts = key.split(".");
-    Node *n = &m_root;
-    int propIdx = -1;
-    while (n) {
-        if (parts.size() == 1) {
-            propIdx = n->indexOfProperty(parts.last());
-            break;
-        } else {
-            int childIdx = n->indexOfChild(parts.takeFirst());
-            if (childIdx == -1) {
-                n = nullptr;
-            } else {
-                n = n->childNodes[childIdx];
-            }
+    if (!f.open(QIODevice::ReadOnly)) {
+        QString msg = QString("File %1 not found").arg(path);
+        qWarning().noquote() << msg;
+        setStatus(Error);
+        if (ok) {
+            *ok = false;
         }
+        return QByteArray();
     }
-    indexOfProperty = propIdx;
-    return n;
-}
-
-bool ConfigEngine::globalConfigModified() const
-{
-    return m_state & (GlobalConfigModified << Global);
-}
-
-bool ConfigEngine::userConfigModified() const
-{
-    return m_state & (GlobalConfigModified << User);
-}
-
-bool ConfigEngine::projectConfigModified() const
-{
-    return m_state & (GlobalConfigModified << Project);
-}
-
-const ConfigEngine::StateFlags &ConfigEngine::state() const
-{
-    return m_state;
-}
-
-const QString &ConfigEngine::errorString() const
-{
-    return m_errorString;
-}
-
-void ConfigEngine::setErrorString(const QString &errorString)
-{
-    if (m_errorString != errorString) {
-        m_errorString = errorString;
-        emit errorStringChanged();
-        emit warning(errorString);
-        qWarning().noquote() << errorString;
+    QByteArray data = f.readAll();
+    f.close();
+    if (ok) {
+        *ok = true;
     }
+    return data;
+}
+
+
+
+bool ConfigEngine::deferChangeSignals() const
+{
+    return m_deferChangeSignals;
+}
+
+QString ConfigEngine::loadLayer(const QString &path, int desiredIndex)
+{
+    qDebug() << "Loading config" << path << "for level" << desiredIndex;
+    if (desiredIndex == 0) {
+        m_layers.clear();
+    } else if (desiredIndex < 0 && !m_layers.isEmpty()) {
+        desiredIndex = m_layers.size();
+    } else if (m_layers.isEmpty()) {
+        desiredIndex = 0; // implicitly load the global config
+    }
+    if (desiredIndex > 0 && m_status < ConfigLoaded) {
+        qWarning() << "Can't load layers until the base config is loaded";
+        return QString();
+    }
+    bool ok;
+    QByteArray data = readFile(path, &ok);
+    if (!ok) {
+        return QString();
+    }
+    QJsonObject obj = parseData(data, &ok);
+    if (!ok && desiredIndex == 0) {
+        setStatus(Error);
+        return QString();
+    }
+    QString name = getNameFromPath(path);
+    ConfigLayer layer;
+    layer.index = desiredIndex;
+    layer.object = obj;
+    auto it = m_layers.insert(name, layer);
+    if (desiredIndex == 0 && m_layers.size() == 1) {
+        it->active = true;
+        qDebug() << "Loaded root config";
+        m_root.setJsonObject(obj);
+        setStatus(ConfigLoaded);
+        qDebug() << m_root.object();
+    }
+    return name;
+}
+
+
+ConfigEngine::Status ConfigEngine::status() const
+{
+    return m_status;
+}
+
+void ConfigEngine::beginUpdate()
+{
+    m_deferChangeSignals = true;
+}
+
+void ConfigEngine::endUpdate()
+{
+    m_deferChangeSignals = false;
+    m_root.emitDeferredSignals();
+}
+
+void ConfigEngine::setStatus(Status newStatus)
+{
+    if (m_status == newStatus)
+        return;
+    m_status = newStatus;
+    emit statusChanged();
+}
+
+bool ConfigEngine::readonly() const
+{
+    return m_readonly;
+}
+
+void ConfigEngine::setReadonly(bool newReadonly)
+{
+    if (m_readonly == newReadonly)
+        return;
+    m_readonly = newReadonly;
+    emit readonlyChanged();
 }

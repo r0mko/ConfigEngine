@@ -1,0 +1,10 @@
+{
+    "editor": {
+        "colors": {
+            "backgroundColor": "#33302a",
+            "labelEnabledColor": "#ffefde",
+            "labelDisabledColor": "#887c70",
+            "textDefaultColor": "#ff0000"
+        }
+    }
+}

@@ -23,11 +23,43 @@ it is possible to access the values in QML through `ConfigEngine.config.colors.d
 
 First, load the root config by calling the `ConfigEngine.loadLayer("filename.json")` for the first time or after calling the `clear()` method. Then, load any number of config layers by calling the same method again with different filenames. Each loaded layer is given a name corresponding the filename without path and extension. 
 
+
 By default each next layer is loaded on top of the previous, so the last loaded layer has the highest priority, should it be activated along with others. It is possible, however, to change the default order by providing an optional second argument `desiredIndex` argument for `ConfigEngine.loadLayer(path, desiredIndex)`. Please note that if the layer with desired index is already loaded, this will overwrite the existing data without warning. 
+
+```qml
+Component.onCompleted: {
+    ConfigEngine.loadLayer("path/to/rootConfig.json") // the name of the root layer = rootConfig
+    for (const e of _root.configs) {
+        ConfigEngine.loadLayer(e);
+    }
+    // "topmost_config" layer's properties have the highest priority once it is activated
+    ConfigEngine.loadLayer("path/to/very/important/topmost_config.json", 10000); 
+}
+```
 
 Note that loaded layer is not activated by default, in other words, all layers by default are loaded invisible. Use `ConfigEngine.activateLayer(name)` and `ConfigEngine.deactivateLayer(name)` methods to make layers "visible" throught the `ConfigEngine.config` property.
 
 If you need to change the set of activated layers at once without triggering huge number of signal changes for each step, call `ConfigEngine.beginUpdate()`, then activate/deactivate desired layers and then call `ConfigEngine.endUpdate()` method, which triggers all accumulated "changed" signals.
+
+```qml
+Button {
+    id: _loadDarkThemeButton
+    onClicked: {
+        ConfigEngine.beginUpdate();
+        ConfigEngine.activateLayer("dark_theme");
+        if (Display.isHiDPI) {
+            ConfigEngine.activateLayer("dark_theme_hidpi")
+        }
+        if (UserConfig.colorBlindModeEnabled) {
+            ConfigEngine.activateLayer("dark_theme_%1".arg(UserConfig.colorBlindnessType))
+        } else if (SpecialDates.isPrideDay) {
+            ConfigEngine.activateLayer("dark_theme_pride")
+        } else if (SpecialDates.isChristmas) {
+            ConfigEngine.activateLayer("dark_theme_xmas")
+        }
+        ConfigEngine.endUpdate()
+     }
+```
 
 ## Example
 

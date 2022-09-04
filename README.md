@@ -4,12 +4,9 @@ A QML way to work with JSON configurations.
 
 ## Introduction
 
-This QML engine plugin provides a `ConfigEngine` singleton which enables you to have a multilayered config similar to one in VS Code.
-There is a `ConfigEngine::Global` level which is considered a read-only config (usually bundled with the app). In turn, `ConfigEngine::User` corresponds to a user's config usually resided in `~/.config/<your_app>` directory. The last level is `ConfigEngine::Project` and it represents the config for a workspace.
+This QML engine plugin provides a `ConfigEngine` singleton which enables you to have a multilayered config similar to one in VS Code. For straighforward usage in QML, the hierarchy of the JSON file is represented as QObject properties with notify signals, so they can (and meant to) be used in QML bindings.
 
-Assuming that the global config always contains a full set of possible config values, each next level, when being loaded, just amends the global config overriding existing values. User and project configs can be loaded and unloaded in runtime without any problem via corresponding methods. Whenever a value of a specific config key is changed due to the amendment process or somehow externally, a signal is emitted and the corresponding property is notified triggering invalidation (and re-evaluation) of a binding.
-
-To access actual values, `ConfigEngine` also exposes a global context property `Config`.
+Assuming that the root config represents the full set of config values, each next layer, once loaded and activated, just overrides the existing values, but never changes the set of properties. Any layer can be loaded, activated, deactivated and unloaded in runtime, and this will just emit the change signals of affected properties, thus triggering re-evaluation of corresponding QML bindings. 
 
 Configs are stored in JSON format. Thus, for a config like:
 ```json
@@ -20,11 +17,17 @@ Configs are stored in JSON format. Thus, for a config like:
     }
 }
 ```
-it is possible to access the values in QML through `Config.colors.defaultBackground` and `Config.colors.defaultText`.
+it is possible to access the values in QML through `ConfigEngine.config.colors.defaultBackground` and `ConfigEngine.config.colors.defaultText`. 
 
 ## Usage
 
-To add the plugin to your Qbs project, simply include `src/plugin.qbs`.
+First, load the root config by calling the `ConfigEngine.loadLayer("filename.json")` for the first time or after calling the `clear()` method. Then, load any number of config layers by calling the same method again with different filenames. Each loaded layer is given a name corresponding the filename without path and extension. 
+
+By default each next layer is loaded on top of the previous, so the last loaded layer has the highest priority, should it be activated along with others. It is possible, however, to change the default order by providing an optional second argument `desiredIndex` argument for `ConfigEngine.loadLayer(path, desiredIndex)`. Please note that if the layer with desired index is already loaded, this will overwrite the existing data without warning. 
+
+Note that loaded layer is not activated by default, in other words, all layers by default are loaded invisible. Use `ConfigEngine.activateLayer(name)` and `ConfigEngine.deactivateLayer(name)` methods to make layers "visible" throught the `ConfigEngine.config` property.
+
+If you need to change the set of activated layers at once without triggering huge number of signal changes for each step, call `ConfigEngine.beginUpdate()`, then activate/deactivate desired layers and then call `ConfigEngine.endUpdate()` method, which triggers all accumulated "changed" signals.
 
 ## Example
 

@@ -18,7 +18,7 @@ DynamicLibrary {
         "private/node.cpp",
         "private/node.h",
         '*.cpp',
-        '*.hpp',
+        '*.h',
     ]
 
     Group {

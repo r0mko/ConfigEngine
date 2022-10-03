@@ -3,7 +3,6 @@
 #include <QtCore/QJsonObject>
 #include <QtCore/QObject>
 
-#include "ConfigEngine.hpp"
 #include "private/node.h"
 
 class JsonQObject : public QObject

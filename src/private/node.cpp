@@ -2,8 +2,8 @@
 
 #include <QtCore/private/qmetaobjectbuilder_p.h>
 
-#include "ConfigEngine.hpp"
-#include "JsonQObject.hpp"
+#include "jsonconfig.h"
+#include "JsonQObject.h"
 
 Node::NamedValueGroup::NamedValueGroup(const QString &key, QVariant value)
     : key(key)
@@ -14,16 +14,11 @@ Node::NamedValueGroup::NamedValueGroup(const QString &key, QVariant value)
 const QVariant &Node::NamedValueGroup::value() const
 {
     static const QVariant invalid;
-    auto it = values.cend();
-    --it;
-    return *it;
-//    while(it != values.cbegin()) {
-//        --it;
-//        if (it->isValid()) {
-//            return *it;
-//        }
-//    }
-    return invalid;
+    if (values.empty()) {
+        return invalid;
+    }
+
+    return values.last();
 }
 
 int Node::NamedValueGroup::setValue(const QVariant &value)
@@ -31,8 +26,7 @@ int Node::NamedValueGroup::setValue(const QVariant &value)
     if (values.isEmpty()) {
         return -1;
     }
-    auto it = values.end();
-    --it;
+    auto it = values.end() - 1;
     it.value() = value;
     return it.key();
 }
@@ -40,6 +34,29 @@ int Node::NamedValueGroup::setValue(const QVariant &value)
 void Node::NamedValueGroup::writeValue(const QVariant &value, int level)
 {
     values[level] = value;
+}
+
+void Node::NamedValueGroup::changePriority(int oldPrio, int newPrio)
+{
+    if (oldPrio == newPrio) {
+        return;
+    }
+    emitPending = newPrio >= values.lastKey() || oldPrio == values.lastKey();
+    qDebug() << "Changinng prio from" << oldPrio << "to" << newPrio << emitPending;
+    auto it = values.find(oldPrio);
+    if (it == values.end() ) {
+        return;
+    }
+    auto it2 = values.find(newPrio);
+
+    QVariant val = it.value();
+    if (it2 != values.end()) {
+        qInfo() << "Overwriting value at level" << newPrio << it2.value() << "with" << val << values.keys();
+        it2.value() = val;
+    } else {
+        values.insert(newPrio, val);
+    }
+    values.erase(it);
 }
 
 void Node::createObject()
@@ -109,11 +126,10 @@ void Node::createObject()
             continue;
         }
 #endif
-
         QByteArray pname = it->key.toLatin1();
         QMetaPropertyBuilder pb = b.addProperty(pname, type);
         pb.setStdCppSet(false);
-        pb.setWritable(!m_engine->readonly());
+        pb.setWritable(!m_config->readonly());
         QByteArray sig(pname + "Changed()");
         QMetaMethodBuilder mb = b.addSignal(sig);
         mb.setReturnType("void");
@@ -136,6 +152,25 @@ void Node::createObject()
     m_object = new JsonQObject(mo, this, m_parent ? m_parent->m_object : nullptr);
 }
 
+const QString &Node::name() const
+{
+    return m_name;
+}
+
+bool Node::moveLayer(int oldPriority, int newPriority)
+{
+    bool changed = false;
+    for (int i = 0; i < properties.size(); ++i) {
+        NamedValueGroup &p = properties[i];
+        p.changePriority(oldPriority, newPriority);
+        changed |= p.emitPending;
+    }
+    for (auto n : qAsConst(m_childNodes)) {
+        changed |= n->moveLayer(oldPriority, newPriority);
+    }
+    return changed;
+}
+
 void Node::setJsonObject(QJsonObject object)
 {
     // split primitive propertties and Object properties
@@ -149,7 +184,7 @@ void Node::setJsonObject(QJsonObject object)
     }
     for (auto it = objects.begin(); it != objects.end(); ++it) {
         Node *n = new Node();
-        n->m_engine = m_engine;
+        n->m_config = m_config;
         n->m_name = it.key();
         m_childNodes.append(n);
         n->setJsonObject(it.value());
@@ -165,7 +200,7 @@ QJsonObject Node::toJsonObject(int level) const
         if (level == -1) {
             ret[g.key] = QJsonValue::fromVariant(g.value());
         } else if (g.values.size() > level) {
-            QVariant v = g.values[level];
+            QVariant v = g.values.value(level);
             if (v.isValid()) {
                 ret[g.key] = QJsonValue::fromVariant(v);
             }
@@ -180,14 +215,53 @@ QJsonObject Node::toJsonObject(int level) const
     return ret;
 }
 
+// swap JSON object for nodes when layer file is changed
+void Node::swapJsonObject(QJsonObject oldObject, QJsonObject newObject, int level)
+{
+    for (int i = 0; i < properties.size(); ++i) {
+        auto it_old = oldObject.find(properties[i].key);
+        auto it_new = newObject.find(properties[i].key);
+        if (it_new != newObject.end()) {
+            if (it_new->isObject()) {
+                qWarning() << "Property" << it_new.key() << "has different type in the layer (Object)";
+                removeProperty(i, level);
+            } else {
+                updateProperty(i, level, it_new.value().toVariant());
+            }
+            newObject.erase(it_new);
+        } else if (it_old != oldObject.end()) {
+            qDebug() << "Property" << fullPropertyName(properties[i].key) << "is missing in new config";
+            removeProperty(i, level);
+        }
+    }
+
+    for (Node *n : qAsConst(m_childNodes)) {
+        auto it = newObject.find(n->name());
+        if (it != newObject.end()) {
+            n->swapJsonObject(oldObject.value(n->name()).toObject(), it->toObject(), level);
+            it = newObject.erase(it);
+        }
+    }
+
+    if (!newObject.isEmpty()) {
+        QStringList keys = newObject.keys();
+        for (auto &key : keys) {
+            key = fullPropertyName(key);
+        }
+        qDebug().noquote() << "Unknown keys:" << keys.join(", ");
+    }
+}
+
+// update existing properties with a new JSON object for given level. The object must be created, i. e., the initial config loaded.
 void Node::updateJsonObject(QJsonObject object, int level)
 {
     QMap<QString, QJsonObject> objects;
+
     for (auto it = object.begin(); it != object.end(); ++it) {
         if (!it.value().isObject()) {
             auto ii = std::find_if(properties.begin(), properties.end(), [&](const NamedValueGroup &v) { return v.key == it.key();});
             if (ii == properties.end()) {
-                QString msg = QString("Property %1 does not exist in the root config").arg(fullPropertyName(it.key()));
+                QString msg = QString("Property %1 does not exist in base config").arg(fullPropertyName(it.key()));
                 qWarning().noquote() << msg;
                 continue;
             }
@@ -200,7 +274,7 @@ void Node::updateJsonObject(QJsonObject object, int level)
     for (auto it = objects.begin(); it != objects.end(); ++it) {
         auto ii = std::find_if(m_childNodes.begin(), m_childNodes.end(), [&](const Node *node) { return node->m_name == it.key();});
         if (ii == m_childNodes.end()) {
-            QString msg = QString("Property %1 does not exist in the root config").arg(fullPropertyName(it.key()));
+            QString msg = QString("Property %1 does not exist in base config").arg(fullPropertyName(it.key()));
             qWarning().noquote() << msg;
             continue;
         }
@@ -300,9 +374,14 @@ QString Node::fullPropertyName(const QString &property) const
     return pl.join(".");
 }
 
+void Node::setConfig(JsonConfig *newConfig)
+{
+    m_config = newConfig;
+}
+
 void Node::propertyChangedHelper(int index)
 {
-    if (m_engine->deferChangeSignals()) {
+    if (m_config->deferChangeSignals()) {
         properties[index].emitPending = true;
     } else {
         m_object->notifyPropertyUpdate(index);
@@ -336,10 +415,6 @@ Node *Node::getNode(const QString &key, int *indexOfProperty)
     return n;
 }
 
-void Node::setEngine(ConfigEngine *newEngine)
-{
-    m_engine = newEngine;
-}
 
 Node *Node::childAt(qsizetype index) const
 {

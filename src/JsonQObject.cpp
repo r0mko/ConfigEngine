@@ -1,4 +1,4 @@
-#include "JsonQObject.hpp"
+#include "JsonQObject.h"
 
 #include <QtCore/QMetaProperty>
 

@@ -20,7 +20,7 @@ Window {
 
     JsonConfig {
         id: _config
-        filePath: ":/globalConfig.json"
+        filePath: ":/mb_globalConfig.mb.json"
 
         Instantiator {
             id: _layerMaker
@@ -28,9 +28,27 @@ Window {
             delegate: ConfigLayer {
                 filePath: ":/%1.json".arg(modelData.name)
             }
-            onObjectAdded: {
+            function objectAdded(index) {
                 root.model[index].layer = object
             }
+        }
+    }
+
+
+    JsonConfig {
+        id: _fontConfig
+        filePath: ":/fontconfig.json"
+
+        ConfigLayer {
+            id: _fontLayer
+            filePath: ":/fontlayer.json"
+            active: _fontLayerCb.checked
+            onActiveChanged: {
+                console.log("Setting font layer active", active)
+            }
+        }
+        onActiveLayersChanged: {
+            console.log("Active layers", activeLayers, configData.sansRomanLight50.family)
         }
     }
 
@@ -179,6 +197,35 @@ Window {
                     config.editor.rotation = _slider.value
                     console.log("Setting value", _slider.value)
                 }
+            }
+        }
+
+        Flow {
+            Layout.fillWidth: true
+            spacing: 4
+            Repeater {
+                model: Object.keys(_fontConfig.configData)
+                Button {
+                    text: modelData
+                    enabled: modelData.indexOf("Changed") == -1
+                    onClicked: {
+                        console.info(Object.keys(_fontConfig.configData[modelData]))
+                        _fontConfig.configData[modelData].size = 111;
+                    }
+                }
+            }
+        }
+
+        RowLayout {
+            Label {
+                text: "sansRomanLight50 size: %1 family: %2".arg(_fontConfig.configData.sansRomanLight50.size).arg(_fontConfig.configData.sansRomanLight50.family)
+            }
+        }
+
+        CheckBox {
+            id: _fontLayerCb
+            Component.onCompleted: {
+                checked = _fontLayer.active
             }
         }
     }

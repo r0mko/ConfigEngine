@@ -1,9 +1,14 @@
 #include <QtGui/QGuiApplication>
 #include <QtQml/QQmlApplicationEngine>
+#include "../src/jsonconfig.h"
+#include "fontinfo.h"
 
 int main(int argc, char *argv[])
 {
     QGuiApplication app(argc, argv);
+
+    int mtid = qRegisterMetaType<FontInfo*>();
+    qDebug() << QMetaType::typeName(mtid) << "registered as" << mtid;
 
     QQmlApplicationEngine engine;
     engine.addImportPath(app.applicationDirPath() + "/..");

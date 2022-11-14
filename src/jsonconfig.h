@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QQmlParserStatus>
 #include <QQmlListProperty>
+#include <QPointer>
 #include "private/node.h"
 
 class ConfigLayer;
@@ -62,11 +63,13 @@ public:
     QStringList layers() const;
     QStringList activeLayers() const;
 
+
 public slots:
     void changeLayerName(const QString &oldName, const QString &newName);
     void changeLayerPriority(const QString &name, int priority);
     QString loadLayer(const QString &path, QString name, int desiredIndex = -1);
     void writeConfig(const QString &path, const QString &layer);
+    QByteArray exportConfig();
     void unloadLayer(const QString &layer);
     void activateLayer(const QString &layer);
     void deactivateLayer(const QString &layer);
@@ -79,6 +82,7 @@ public slots:
 private slots:
     void handleAddedChild(int index, QObject *object);
     void handleRemovedChild(int index, QObject *object);
+    void onUserObjectPropertyChanged();
 
 signals:
     void filePathChanged();
@@ -90,7 +94,13 @@ signals:
     void layersChanged();
     void activeLayersChanged();
 
+protected:
+    virtual void userObjectCreated(Node *node, QObject *object);
+    QMap<QObject*, Node*> m_userObjects;
+
 private:
+    friend class Node;
+    static const int listenerSlotIndex;
     struct ConfigLayerData {
         int index = -1;
         bool active = false;
@@ -99,6 +109,7 @@ private:
         QString name;
         QJsonObject object;
         static ConfigLayerData fromFile(const QString &path);
+        static ConfigLayerData fromData(const QByteArray &json);
 
         enum { Null, FileError, ParseError, None, Active, Object } flag = Null;
     };
@@ -113,6 +124,7 @@ private:
     bool m_deferChangeSignals = false;
     bool m_updatePending = false;
     bool m_deferUpdate = true;
+    bool m_updating = false;
 
     QQmlListProperty<QObject> qmlChildren();
     static void qmlChildrenAppend(QQmlListProperty<QObject> *list, QObject *object);
@@ -129,4 +141,6 @@ private:
     void setStatus(Status newStatus);
     void checkModified();
     ConfigLayerData *getLayer(const QString &name);
+
+    void cleanupUserObject();
 };

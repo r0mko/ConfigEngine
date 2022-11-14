@@ -18,7 +18,8 @@ JsonQObject::JsonQObject(QMetaObject *mo, Node *node, QObject *parent)
 
 JsonQObject::~JsonQObject()
 {
-    free(m_metaObject); // metaobject is unique for each JsonQObject
+    // metaobject is unique for each JsonQObject and is created using malloc/memset by QMetaObjectBuilder, hence NOLINT
+    free(m_metaObject); // NOLINT
 }
 
 int JsonQObject::qt_metacall(QMetaObject::Call call, int id, void **arguments)
@@ -43,7 +44,8 @@ const QMetaObject *JsonQObject::metaObject() const
 
 void JsonQObject::staticMetaCallImpl(QObject *object, QMetaObject::Call call, int id, void **arguments)
 {
-    JsonQObject *obj = reinterpret_cast<JsonQObject*>(object);
+    // staticMetaCall can only be called on an JsonQObject instance, so no need to use expensive cast, hence NOLINT
+    JsonQObject *obj = reinterpret_cast<JsonQObject*>(object); // NOLINT
     switch (call) {
     case QMetaObject::ReadProperty:
     case QMetaObject::WriteProperty:
@@ -53,35 +55,6 @@ void JsonQObject::staticMetaCallImpl(QObject *object, QMetaObject::Call call, in
         break;
     }
     obj->metacallImpl(call, id, arguments);
-}
-
-void JsonQObject::notifyPropertyUpdate(int id)
-{
-    id += m_metaObject->propertyOffset();
-    int sig_id = m_metaObject->property(id).notifySignalIndex();
-    emitSignalHelper(sig_id, QVariantList());
-}
-
-void JsonQObject::emitSignalHelper(int signalIndex, QVariantList arguments)
-{
-    QVector<void*> args;
-    args.append(0);
-    for(int i = 0; i < arguments.size(); ++i) {
-        args.append(arguments[i].data());
-    }
-    emitSignal(signalIndex, args.data());
-}
-
-void JsonQObject::emitSignal(int index, void **arguments)
-{
-    //    qDebug() << "Emitting signal id" << index << mo.method(index).methodSignature() << "in thread" << QThread::currentThread();
-    const QMetaObject *m = m_metaObject;
-    int loc_id = index - m->methodOffset();
-    while (loc_id < 0) {
-        m = m->superClass();
-        loc_id = index - m->methodOffset();
-    }
-    QMetaObject::activate(this, m, loc_id, arguments);
 }
 
 void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
@@ -105,7 +78,7 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
     case QMetaObject::ReadProperty: {
         int index = id - m_metaObject->propertyOffset();
         if (index < 0) {
-            m_metaObject->superClass()->metacall(this, call, id, arguments);
+            QMetaObject::metacall(this, call, id, arguments);
             return;
         }
         bool isPod = true;
@@ -113,8 +86,7 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
             index -= m_node->properties.size();
             isPod = false;
         }
-
-        void *a = arguments[0];
+        void *a = arguments[0]; // NOLINT
 
         if (isPod) {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -123,13 +95,13 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
             if (ptype != prop.userType()) {
                 if (ptype == qMetaTypeId<qlonglong>()) {
                     qlonglong val = prop.toLongLong();
-                    QMetaType::construct(ptype, arguments[0], &val);
+                    QMetaType::construct(ptype, arguments[0], &val); // NOLINT
                 } else if (ptype == qMetaTypeId<double>()) {
                     double val = prop.toDouble();
-                    QMetaType::construct(ptype, arguments[0], &val);
+                    QMetaType::construct(ptype, arguments[0], &val); // NOLINT
                 }
             } else {
-                QMetaType::construct(ptype, arguments[0], prop.constData());
+                QMetaType::construct(ptype, arguments[0], prop.constData()); // NOLINT
             }
 #else
             QMetaType ptype = m_metaObject->property(id).metaType();
@@ -147,25 +119,25 @@ void JsonQObject::metacallImpl(QMetaObject::Call call, int id, void **arguments)
             }
 #endif
         } else {
-            *reinterpret_cast<QObject**>(a) = m_node->childAt(index)->object();
+            *reinterpret_cast<QObject**>(a) = m_node->childAt(index)->object(); // NOLINT
         }
         break;
     }
     case QMetaObject::WriteProperty: {
         int index = id - m_metaObject->propertyOffset();
         if (index < 0) {
-            m_metaObject->superClass()->metacall(this, call, id, arguments);
+            QMetaObject::metacall(this, call, id, arguments);
             return;
         }
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-        QVariant value = QVariant(m_metaObject->property(id).userType(), arguments[0]);
+        QVariant value = QVariant(m_metaObject->property(id).userType(), arguments[0]); // NOLINT
 #else
-        QVariant value = QVariant(m_metaObject->property(id).metaType(), arguments[0]);
+        QVariant value = QVariant(m_metaObject->property(id).metaType(), arguments[0]); // NOLINT
 #endif
         qDebug() << "Write property" << index << "val" << value;
         if (m_node->properties.size() > index) {
             m_node->properties[index].setValue(value);
-            notifyPropertyUpdate(index);
+            m_node->notifyPropertyUpdate(index);
         }
         break;
     }

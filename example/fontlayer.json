@@ -1,0 +1,32 @@
+{
+    "sansRomanDemi38": {
+        "id": "541f7ca8-ff68-4285-b1bc-05854cfc94fe",
+        "name": "sansRomanDemi38",
+        "$type": "FontInfo",
+        "family": "mbSans_demi_global_foo",
+        "size": 39,
+        "description": "unit size - also used together with an icon"
+    },
+    "sansRomanLight38": {
+        "id": "5dc5797a-e121-40e9-97c7-574efbb0ae1f",
+        "name": "sansRomanLight38",
+        "$type": "FontInfo",
+        "family": "mbSans_light_global_foo",
+        "size": 39,
+        "description": "unit size - also used together with an icon"
+    },
+    "sansRomanLight50": {
+        "id": "7304cd6f-c6cb-48c5-9931-c1526a92e90a",
+        "name": "sansRomanLight50",
+        "$type": "FontInfo",
+        "family": "mbSans_light_global_foo",
+        "size": 512
+    },
+    "sansRomanLight40": {
+        "id": "746e2b17-75f4-4d55-991b-c58032085ec5",
+        "name": "sansRomanLight40",
+        "$type": "FontInfo",
+        "family": "mbSans_light_global_foo",
+        "size": 41
+    }
+}

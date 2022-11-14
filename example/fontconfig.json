@@ -1,0 +1,90 @@
+{
+    "sansRomanDemi38": {
+        "id": "541f7ca8-ff68-4285-b1bc-05854cfc94fe",
+        "name": "sansRomanDemi38",
+        "$type": "FontInfo",
+        "family": "mbSans_demi_global",
+        "size": 38,
+        "description": "unit size - also used together with an icon"
+    },
+    "sansRomanLight38": {
+        "id": "5dc5797a-e121-40e9-97c7-574efbb0ae1f",
+        "name": "sansRomanLight38",
+        "$type": "FontInfo",
+        "family": "mbSans_light_global",
+        "size": 38,
+        "description": "unit size - also used together with an icon"
+    },
+    "sansRomanLight50": {
+        "id": "7304cd6f-c6cb-48c5-9931-c1526a92e90a",
+        "name": "sansRomanLight50",
+        "$type": "FontInfo",
+        "family": "mbSans_light_global",
+        "size": 50
+    },
+    "sansRomanLight40": {
+        "id": "746e2b17-75f4-4d55-991b-c58032085ec5",
+        "name": "sansRomanLight40",
+        "$type": "FontInfo",
+        "family": "mbSans_light_global",
+        "size": 40
+    },
+    "sansRomanDemi55": {
+        "id": "93338456-3347-43be-94b9-e8fe456c58b9",
+        "name": "sansRomanDemi55",
+        "$type": "FontInfo",
+        "family": "mbSans_demi_global",
+        "size": 55
+    },
+    "sansRomanDemi43": {
+        "id": "9490e582-f134-4312-81c9-d8d40387449b",
+        "name": "sansRomanDemi43",
+        "$type": "FontInfo",
+        "family": "mbSans_demi_global",
+        "size": 43
+    },
+    "sansRomanDemi25": {
+        "id": "992d421b-83b7-4a65-a988-2edd1425d040",
+        "name": "sansRomanDemi25",
+        "$type": "FontInfo",
+        "family": "mbSans_demi_global",
+        "size": 25,
+        "description": "only use for climate line fan auto"
+    },
+    "sansRomanDemi50": {
+        "id": "a19a46f9-3f0a-461a-9571-703deee77062",
+        "name": "sansRomanDemi50",
+        "$type": "FontInfo",
+        "family": "mbSans_demi_global",
+        "size": 50
+    },
+    "sansRomanLight43": {
+        "id": "ac620710-213e-4f04-99ab-13aca81dd257",
+        "name": "sansRomanLight43",
+        "$type": "FontInfo",
+        "family": "mbSans_light_global",
+        "size": 43
+    },
+    "sansRomanLight55": {
+        "id": "c23df447-7bf6-4e38-801a-6534e51fb302",
+        "name": "sansRomanLight55",
+        "$type": "FontInfo",
+        "family": "mbSans_light_global",
+        "size": 55
+    },
+    "sansRomanLight50-num": {
+        "id": "d4985896-03cd-4ae5-bbf8-e953b3661e40",
+        "name": "sansRomanLight50-num",
+        "$type": "FontInfo",
+        "family": "mbSans_light_num",
+        "size": 50,
+        "description": "fixed width numbers only (used in climate etc.)"
+    },
+    "sansRomanLight72": {
+        "id": "ff637519-36e5-4a59-aee0-f5ec2a000fd0",
+        "name": "sansRomanLight72",
+        "$type": "FontInfo",
+        "family": "mbSans_light_global",
+        "size": 72
+    }
+}

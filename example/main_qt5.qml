@@ -21,7 +21,7 @@ Window {
 
     JsonConfig {
         id: _config
-        filePath: ":/globalConfig.json"
+        filePath: ":/mb_globalConfig.mb.json"
 
         Instantiator {
             id: _layerMaker
@@ -33,6 +33,11 @@ Window {
                 root.model[index].layer = object
             }
         }
+    }
+
+    JsonConfig {
+        id: _fontConfig
+        filePath: ":/fontconfig.json"
     }
 
     ColumnLayout {
@@ -115,7 +120,6 @@ Window {
             }
         }
 
-
         ColumnLayout {
             Repeater {
                 model: root.model
@@ -165,10 +169,20 @@ Window {
                 }
             }
 
+
+
             Button {
                 text: "Unload layers"
                 onClicked: {
                     _layerMaker.active = false
+                }
+            }
+
+            Button {
+                text: "Export config"
+                onClicked: {
+                    var data =_config.exportConfig()
+                    console.info(data)
                 }
             }
 
@@ -179,6 +193,22 @@ Window {
                 onValueChanged: {
                     config.editor.rotation = _slider.value
                     console.log("Setting value", _slider.value)
+                }
+            }
+        }
+
+        Flow {
+            Layout.fillWidth: true
+            spacing: 4
+            Repeater {
+                model: Object.keys(_fontConfig.configData)
+                Button {
+                    text: modelData
+                    enabled: modelData.indexOf("Changed") == -1
+                    onClicked: {
+                        console.info(Object.keys(_fontConfig.configData[modelData]))
+                        _fontConfig.configData[modelData].size = 111;
+                    }
                 }
             }
         }

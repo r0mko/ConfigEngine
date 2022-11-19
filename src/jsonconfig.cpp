@@ -6,6 +6,10 @@
 #include <QEvent>
 #include <QFile>
 #include <QJsonDocument>
+#include <QMetaObject>
+#include <QMetaProperty>
+
+const int JsonConfig::listenerSlotIndex = JsonConfig::staticMetaObject.indexOfSlot("onUserObjectPropertyChanged()");
 
 namespace {
 
@@ -20,7 +24,7 @@ QString getNameFromPath(const QString &path)
         return ret.first(); // filename without extension
     }
     qWarning() << "Incorrect path format" << path;
-    return QString();
+    return {};
 }
 
 QByteArray readFile(const QString &path, bool *ok)
@@ -51,13 +55,13 @@ QJsonObject parseData(const QByteArray &data, bool *ok)
         QString msg = QString("Parse error: %1").arg(err.errorString());
         qWarning().noquote() << msg;
         *ok = false;
-        return QJsonObject();
+        return {};
     }
     if (!json.isObject()) {
         QString msg = QString("JSON must contain an object");
         qWarning().noquote() << msg;
         *ok = false;
-        return QJsonObject(); // TODO: set invalid state
+        return {}; // TODO: set invalid state
     }
     *ok = true;
     return json.object();
@@ -145,6 +149,13 @@ void JsonConfig::writeConfig(const QString &path, const QString &layer)
     checkModified();
 }
 
+QByteArray JsonConfig::exportConfig()
+{
+    QJsonObject ret = m_root.toJsonObject(-1);
+    QJsonDocument doc(ret);
+    return doc.toJson(QJsonDocument::Indented);
+}
+
 void JsonConfig::unloadLayer(const QString &layer)
 {
     auto l = getLayer(layer);
@@ -157,6 +168,7 @@ void JsonConfig::unloadLayer(const QString &layer)
 
 void JsonConfig::activateLayer(const QString &layer)
 {
+    qDebug() << "Activating layer" << layer;
     auto l = getLayer(layer);
     if (!l || l->active) {
         return;
@@ -171,7 +183,6 @@ void JsonConfig::deactivateLayer(const QString &layer)
         return;
     }
     doDeactivateLayer(l);
-
 }
 
 void JsonConfig::clear()
@@ -200,7 +211,7 @@ QVariant JsonConfig::getProperty(const QString &layer, const QString &key)
         auto it = m_layers.find(layer);
         if (it == m_layers.end()) {
             qWarning() << "Layer" << layer << "not registered";
-            return QVariant();
+            return {};
         }
         index = it.value().index;
     }
@@ -214,7 +225,7 @@ QVariant JsonConfig::getProperty(const QString &layer, const QString &key)
             return it.value();
         }
     }
-    return QVariant();
+    return {};
 }
 
 void JsonConfig::beginUpdate()
@@ -228,21 +239,48 @@ void JsonConfig::endUpdate()
     m_root.emitDeferredSignals();
 }
 
-void JsonConfig::handleAddedChild(int index, QObject *object)
+void JsonConfig::handleAddedChild(int, QObject *object)
 {
-    qDebug() << "Added child" << object;
-    if (ConfigLayer *qmlLayer = qobject_cast<ConfigLayer*>(object)) {
+    if (auto *qmlLayer = qobject_cast<ConfigLayer*>(object)) {
         addQmlLayer(qmlLayer);
     }
 }
 
-void JsonConfig::handleRemovedChild(int index, QObject *object)
+void JsonConfig::handleRemovedChild(int, QObject *object)
 {
-    qDebug() << "Removed child" << object;
-    if (ConfigLayer *qmlLayer = qobject_cast<ConfigLayer*>(object)) {
+    if (auto *qmlLayer = qobject_cast<ConfigLayer*>(object)) {
         unloadLayer(qmlLayer->name());
         scheduleUpdate();
     }
+}
+
+void JsonConfig::onUserObjectPropertyChanged()
+{
+    if (m_updating) {
+        return;
+    }
+    QObject *s = sender();
+    int idx = senderSignalIndex();
+    auto it = m_userObjects.find(s);
+    if (it != m_userObjects.end()) {
+        const auto *mo = s->metaObject();
+        int prop_idx = -1;
+        for (int i = 0; i < mo->propertyCount(); ++i) {
+            QMetaProperty mp = mo->property(i);
+            if (mp.notifySignalIndex() == idx) {
+                prop_idx = it.value()->indexOfProperty(mp.name());
+                if (prop_idx != -1) {
+                    it.value()->properties[prop_idx].setValue(mp.read(s));
+                }
+                break;
+            }
+        }
+    }
+}
+
+void JsonConfig::userObjectCreated(Node *node, QObject *object)
+{
+    m_userObjects.insert(object, node);
 }
 
 bool JsonConfig::deferChangeSignals() const
@@ -269,19 +307,20 @@ bool JsonConfig::event(QEvent *event)
     }
     return QObject::event(event);
 }
+
 QQmlListProperty<QObject> JsonConfig::qmlChildren() {
 
-    return QQmlListProperty<QObject>(this, 0,
-                                     &JsonConfig::qmlChildrenAppend,
-                                     &JsonConfig::qmlChildrenCount,
-                                     &JsonConfig::qmlChildrenAt,
-                                     QQmlListProperty<QObject>::ClearFunction());
+    return {this, nullptr,
+                &JsonConfig::qmlChildrenAppend,
+                &JsonConfig::qmlChildrenCount,
+                &JsonConfig::qmlChildrenAt,
+                QQmlListProperty<QObject>::ClearFunction()};
 }
+
 void JsonConfig::qmlChildrenAppend(QQmlListProperty<QObject> *list, QObject *object)
 {
     JsonConfig *o = qobject_cast<JsonConfig*>(list->object);
     o->m_children.append(object);
-    qDebug() << "Adding QML child" << object;
     if (object->inherits("QQmlInstantiator")) {
         connect(object, SIGNAL(objectAdded(int,QObject*)), o, SLOT(handleAddedChild(int,QObject*)));
         connect(object, SIGNAL(objectRemoved(int,QObject*)), o, SLOT(handleRemovedChild(int,QObject*)));
@@ -307,6 +346,7 @@ QObject *JsonConfig::qmlChildrenAt(QQmlListProperty<QObject> *list, qsizetype in
 void JsonConfig::addQmlLayer(ConfigLayer *layer)
 {
     layer->setConfig(this);
+    qDebug() << "Adding QML layer" << layer << layer->filePath();
     auto l = doLoadLayer(layer->filePath(), layer->name(), layer->priority());
     if (!l) {
         qWarning() << "Failed to load layer" << layer->filePath();
@@ -389,15 +429,19 @@ void JsonConfig::update()
                 setStatus(ConfigLoaded);
             } else if (layer->active) {
                 QJsonObject oldObj = m_root.toJsonObject(layer->index);
+                m_updating = true;
                 m_root.swapJsonObject(oldObj, layer->object, layer->index);
+                m_updating = false;
             }
             layer->flag = ConfigLayerData::None;
         } else if (layer->flag == ConfigLayerData::Active) {
+            m_updating = true;
             if (layer->active) {
                 m_root.updateJsonObject(layer->object, layer->index);
             } else {
                 m_root.unload(layer->index);
             }
+            m_updating = false;
             layer->flag = ConfigLayerData::None;
             emit activeLayersChanged();
         }
@@ -408,8 +452,9 @@ void JsonConfig::update()
 
 void JsonConfig::setStatus(Status newStatus)
 {
-    if (m_status == newStatus)
+    if (m_status == newStatus) {
         return;
+    }
     m_status = newStatus;
     emit statusChanged();
 }
@@ -447,8 +492,9 @@ bool JsonConfig::deferUpdate() const
 
 void JsonConfig::setDeferUpdate(bool newDeferUpdate)
 {
-    if (m_deferUpdate == newDeferUpdate)
+    if (m_deferUpdate == newDeferUpdate) {
         return;
+}
     m_deferUpdate = newDeferUpdate;
     emit deferUpdateChanged();
 }
@@ -492,13 +538,20 @@ void JsonConfig::changeLayerPriority(const QString &name, int priority)
 JsonConfig::ConfigLayerData JsonConfig::ConfigLayerData::fromFile(const QString &path)
 {
     ConfigLayerData ret;
-    bool ok;
+    bool ok { false };
     QByteArray data = readFile(path, &ok);
     if (!ok) {
         ret.flag = FileError;
         return ret;
     }
-    QJsonObject obj = parseData(data, &ok);
+    return fromData(data);
+}
+
+JsonConfig::ConfigLayerData JsonConfig::ConfigLayerData::fromData(const QByteArray &json)
+{
+    ConfigLayerData ret;
+    bool ok { false };
+    QJsonObject obj = parseData(json, &ok);
     if (!ok) {
         ret.flag = ParseError;
         return ret;
@@ -527,4 +580,9 @@ QStringList JsonConfig::activeLayers() const
         }
     }
     return ret;
+}
+
+void JsonConfig::cleanupUserObject()
+{
+    m_userObjects.remove(sender());
 }

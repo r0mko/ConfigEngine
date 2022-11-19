@@ -3,8 +3,10 @@
         <file>main_qt5.qml</file>
         <file>config_2.json</file>
         <file>config_1.json</file>
-        <file>globalConfig.json</file>
+        <file>mb_globalConfig.mb.json</file>
         <file>main_qt6.qml</file>
         <file>config_3.json</file>
+        <file>fontconfig.json</file>
+        <file>fontlayer.json</file>
     </qresource>
 </RCC>

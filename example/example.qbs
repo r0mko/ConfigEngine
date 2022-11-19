@@ -6,13 +6,15 @@ CppApplication {
     Depends { name: 'Qt.gui' }
     Depends { name: 'Qt.qml' }
 
-    Depends { name: 'configplugin'; cpp.link: false }
+    Depends { name: 'configplugin'; cpp.link: true }
 
     name: 'example'
 
     files: [
+        "fontinfo.cpp",
+        "fontinfo.h",
         'main.cpp',
-        'qml.qrc'
+        'qml.qrc',
     ]
 
     bundle.isBundle: false

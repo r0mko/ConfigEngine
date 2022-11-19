@@ -10,16 +10,11 @@ class JsonQObject : public QObject
 public:
     JsonQObject(QObject *parent = nullptr);
     JsonQObject(QMetaObject *mo, Node *node, QObject *parent = nullptr);
-    virtual ~JsonQObject();
-    virtual int qt_metacall(QMetaObject::Call call, int id, void **arguments);
-    virtual const QMetaObject *metaObject() const;
+    ~JsonQObject() override;
+    int qt_metacall(QMetaObject::Call call, int id, void **arguments) override;
+    const QMetaObject *metaObject() const override;
 
     static void staticMetaCallImpl(QObject *object, QMetaObject::Call call, int id, void **arguments);
-
-    void notifyPropertyUpdate(int id);
-
-    void emitSignalHelper(int signalIndex, QVariantList arguments);
-    void emitSignal(int index, void **arguments);
 
 private:
     void metacallImpl(QMetaObject::Call call, int id, void **arguments);

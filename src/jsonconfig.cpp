@@ -198,7 +198,7 @@ QVariant JsonConfig::getProperty(const QString &layer, const QString &key)
     int index = 0;
     if (!layer.isEmpty()) {
         auto it = m_layers.find(layer);
-        if (it != m_layers.end()) {
+        if (it == m_layers.end()) {
             qWarning() << "Layer" << layer << "not registered";
             return QVariant();
         }

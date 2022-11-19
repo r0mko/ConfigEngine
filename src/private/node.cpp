@@ -26,7 +26,7 @@ int Node::NamedValueGroup::setValue(const QVariant &value)
     if (values.isEmpty()) {
         return -1;
     }
-    auto it = values.end() - 1;
+    auto it = values.end()--;
     it.value() = value;
     return it.key();
 }
@@ -199,7 +199,7 @@ QJsonObject Node::toJsonObject(int level) const
     for (const auto &g : properties) {
         if (level == -1) {
             ret[g.key] = QJsonValue::fromVariant(g.value());
-        } else if (g.values.size() > level) {
+        } else if (g.values.contains(level)) {
             QVariant v = g.values.value(level);
             if (v.isValid()) {
                 ret[g.key] = QJsonValue::fromVariant(v);

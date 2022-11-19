@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QQmlParserStatus>
 #include <QQmlListProperty>
+#include <QPointer>
 #include "private/node.h"
 
 class ConfigLayer;
@@ -28,6 +29,7 @@ class JsonConfig : public QObject, public QQmlParserStatus
 
 public:
     explicit JsonConfig(QObject *parent = nullptr);
+
     enum Status
     {
         Null,
@@ -57,7 +59,6 @@ public:
     bool deferUpdate() const;
     void setDeferUpdate(bool newDeferUpdate);
 
-    void updateLayer(const QString& layer, const QString &filePath);
 
     QStringList layers() const;
     QStringList activeLayers() const;
@@ -71,14 +72,16 @@ public slots:
     void activateLayer(const QString &layer);
     void deactivateLayer(const QString &layer);
     void clear();
-    void setProperty(const QString &layer, const QString &key, QVariant value);
+    void setProperty(const QString &layer, const QString &key, const QVariant &value);
     QVariant getProperty(const QString &layer, const QString &key);
 
     void beginUpdate();
     void endUpdate();
+
 private slots:
-    void handleAddedChild(int index, QObject *object);
-    void handleRemovedChild(int index, QObject *object);
+    void handleAddedChild(int, QObject *object);
+    void handleRemovedChild(int, QObject *object);
+    void onUserObjectPropertyChanged();
 
 signals:
     void filePathChanged();
@@ -90,7 +93,15 @@ signals:
     void layersChanged();
     void activeLayersChanged();
 
+protected:
+    virtual void userObjectCreated(Node *node, QObject *object);
+    QMap<QObject*, Node*> m_userObjects;
+
 private:
+    friend class Node;
+    friend class ConfigLayer;
+
+    static const int listenerSlotIndex;
     struct ConfigLayerData {
         int index = -1;
         bool active = false;
@@ -99,6 +110,7 @@ private:
         QString name;
         QJsonObject object;
         static ConfigLayerData fromFile(const QString &path);
+        static ConfigLayerData fromData(const QByteArray &json);
 
         enum { Null, FileError, ParseError, None, Active, Object } flag = Null;
     };
@@ -113,6 +125,7 @@ private:
     bool m_deferChangeSignals = false;
     bool m_updatePending = false;
     bool m_deferUpdate = true;
+    bool m_updating = false;
 
     QQmlListProperty<QObject> qmlChildren();
     static void qmlChildrenAppend(QQmlListProperty<QObject> *list, QObject *object);
@@ -120,6 +133,7 @@ private:
     static QObject *qmlChildrenAt(QQmlListProperty<QObject> *list, qsizetype index);
     void addQmlLayer(ConfigLayer *layer);
     ConfigLayerData *doLoadLayer(const QString &path, QString name, int desiredIndex);
+    void updateLayerPath(const QString& layer, const QString &filePath);
 
     void doActivateLayer(ConfigLayerData *layer);
     void doDeactivateLayer(ConfigLayerData *layer);

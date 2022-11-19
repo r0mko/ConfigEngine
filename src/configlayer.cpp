@@ -47,14 +47,15 @@ const QString &ConfigLayer::filePath() const
 
 void ConfigLayer::setFilePath(const QString &newFilePath)
 {
-    if (m_filePath == newFilePath)
+    if (m_filePath == newFilePath) {
         return;
+    }
     m_filePath = newFilePath;
     emit filePathChanged();
     if (!m_config) {
         return;
     }
-    m_config->updateLayer(m_name, m_filePath);
+    m_config->updateLayerPath(m_name, m_filePath);
 }
 
 bool ConfigLayer::active() const
@@ -64,8 +65,9 @@ bool ConfigLayer::active() const
 
 void ConfigLayer::setActive(bool newActive)
 {
-    if (m_active == newActive)
+    if (m_active == newActive) {
         return;
+    }
     m_active = newActive;
     emit activeChanged();
     if (!m_config) {
@@ -86,8 +88,9 @@ void ConfigLayer::setConfig(JsonConfig *newConfig)
 
 bool ConfigLayer::doUpdateName(const QString &newName)
 {
-    if (m_name == newName)
+    if (m_name == newName) {
         return false;
+    }
     m_name = newName;
     emit nameChanged();
     return true;
@@ -95,8 +98,9 @@ bool ConfigLayer::doUpdateName(const QString &newName)
 
 bool ConfigLayer::doUpdatePriority(int newPriority)
 {
-    if (m_priority == newPriority)
+    if (m_priority == newPriority) {
         return false;
+    }
     if (newPriority == 0) {
         qWarning() << "Priority 0 is not allowed in layers! Priority value must be either -1 or >= 1";
     }

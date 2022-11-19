@@ -1,0 +1,26 @@
+{
+    "sansRomanDemi": {
+        "name": "",
+        "$type": "FontInfo",
+        "family": "Sans_Roman_demi_global",
+        "size": 39
+    },
+    "sansRomanNormal": {
+        "name": "sansRomanNormal",
+        "$type": "FontInfo",
+        "family": "Sans_Roman_normal_global",
+        "size": 39
+    },
+    "sansRomanLight": {
+        "name": "sansRomanLight",
+        "$type": "FontInfo",
+        "family": "Sans_Roman_light_global",
+        "size": 39
+    },
+    "sansRomanBold": {
+        "name": "sansRomanBold",
+        "$type": "FontInfo",
+        "family": "Sans_bold_global",
+        "size": 41
+    }
+}

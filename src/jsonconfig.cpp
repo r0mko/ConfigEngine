@@ -250,6 +250,19 @@ QVariant JsonConfig::getProperty(const QString &layer, const QString &key)
     return {};
 }
 
+void JsonConfig::resetProperty(const QString & layer, const QString & key)
+{
+    int propIdx = -1;
+    Node * n = m_root.getNode(key, &propIdx);
+    auto l = getLayer(layer);
+    if (!l) {    
+        return;
+    }
+    if (propIdx != -1 && l->index > 0) {
+        n->removeProperty(propIdx, l->index);
+    }
+}
+
 void JsonConfig::beginUpdate()
 {
     m_deferChangeSignals = true;

@@ -74,6 +74,7 @@ public slots:
     void clear();
     void setProperty(const QString &layer, const QString &key, const QVariant &value);
     QVariant getProperty(const QString &layer, const QString &key);
+    void resetProperty(const QString & layer, const QString & key);
 
     void beginUpdate();
     void endUpdate();

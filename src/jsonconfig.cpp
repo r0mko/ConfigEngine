@@ -151,7 +151,7 @@ QString JsonConfig::loadLayer(const QString &path, QString name, int desiredInde
 {
     auto it = doLoadLayer(path, name, desiredIndex);
     scheduleUpdate();
-    return it->name;
+    return it ? it->name : "";
 }
 
 void JsonConfig::writeConfig(const QString &path, const QString &layer)

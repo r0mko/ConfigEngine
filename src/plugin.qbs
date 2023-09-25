@@ -1,4 +1,4 @@
-import qbs
+import qbs.FileInfo
 
 DynamicLibrary {
     Depends { name: 'bundle' }
@@ -24,11 +24,13 @@ DynamicLibrary {
     Group {
         files: 'qmldir'
         qbs.install: true
-        qbs.installDir: 'r0mko/config'
+        qbs.installPrefix: project.installContentsPath
+        qbs.installDir: FileInfo.joinPaths(project.installImportsDir, 'r0mko/config')
     }
 
     bundle.isBundle: false
 
     install: true
-    installDir: 'r0mko/config'
+    installDir: FileInfo.joinPaths(project.installImportsDir, 'r0mko/config')
+    qbs.installPrefix: project.installContentsPath
 }

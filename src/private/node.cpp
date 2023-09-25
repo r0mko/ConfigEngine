@@ -252,7 +252,7 @@ QJsonObject Node::toJsonObject(int level) const // NOLINT
             }
         }
     }
-    for (const auto n : m_childNodes) {
+    for (const auto & n : m_childNodes) {
         // unrolling recursion to iteration makes code less readable. Recursion depth is limited.
         QJsonObject obj = n->toJsonObject(level); // NOLINT
         if (!obj.isEmpty()) {

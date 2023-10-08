@@ -20,4 +20,6 @@ CppApplication {
     bundle.isBundle: false
 
     install: true
+
+    builtByDefault: false
 }

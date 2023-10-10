@@ -48,6 +48,11 @@ int Node::NamedMultiValue::setValue(const QVariant &value)
     }
     auto it = values.end();
     --it;
+    if (it.value() != value && !refs.isEmpty()) {
+        auto refIt = refs.end();
+        --refIt;
+        refs.remove(refIt.key());
+    }
     it.value() = value;
     return it.key();
 }
@@ -59,13 +64,20 @@ void Node::NamedMultiValue::writeValue(const QVariant &value, int level)
 
 void Node::NamedMultiValue::changePriority(int oldPrio, int newPrio)
 {
+    if (changeValuePriority(oldPrio, newPrio)) {
+        changeRefPriority(oldPrio, newPrio);
+    }
+}
+
+bool Node::NamedMultiValue::changeValuePriority(int oldPrio, int newPrio)
+{
     if (oldPrio == newPrio) {
-        return;
+        return false;
     }
     emitPending = newPrio >= values.lastKey() || oldPrio == values.lastKey();
     auto it = values.find(oldPrio);
     if (it == values.end() ) {
-        return;
+        return false;
     }
     auto it2 = values.find(newPrio);
 
@@ -76,6 +88,40 @@ void Node::NamedMultiValue::changePriority(int oldPrio, int newPrio)
         values.insert(newPrio, val);
     }
     values.erase(it);
+    return true;
+}
+
+bool Node::NamedMultiValue::changeRefPriority(int oldPrio, int newPrio)
+{
+    auto it = refs.find(oldPrio);
+    if (it == refs.end() ) {
+        return false;
+    }
+    auto it2 = refs.find(newPrio);
+
+    QString val = it.value();
+    if (it2 != refs.end()) {
+        it2.value() = val;
+    } else {
+        refs.insert(newPrio, val);
+    }
+    refs.erase(it);
+    return true;
+}
+
+bool Node::NamedMultiValue::isRef(int level) const
+{
+    return refs.contains(level);
+}
+
+const QString &Node::NamedMultiValue::ref() const
+{
+    static const QString invalid;
+    if (refs.empty()) {
+        return invalid;
+    }
+
+    return refs.last();
 }
 
 void Node::createObject()
@@ -214,6 +260,7 @@ void Node::setJsonObject(QJsonObject object) // NOLINT
 {
     LIMIT_RECURSION_DEPTH(MAX_RECURSION_DEPTH);
     // split primitive propertties and Object properties
+    m_cachedJsonObject = &object;
     QMap<QString, QJsonObject> objects;
     for (auto it = object.begin(); it != object.end(); ++it) {
         if (!it.value().isObject()) {
@@ -222,6 +269,11 @@ void Node::setJsonObject(QJsonObject object) // NOLINT
             } else {
                 properties.append(NamedMultiValue(it.key(), it.value().toVariant()));
             }
+        } else if (isRefObject(it.value().toObject())) {
+            auto ref = getRefValue(it.value().toObject());
+            NamedMultiValue p{it.key(), resolvedRef(resolvedRefPath(ref))};
+            p.refs[0] = ref;
+            properties.append(p);
         } else {
             objects[it.key()] = it.value().toObject();
         }
@@ -230,12 +282,14 @@ void Node::setJsonObject(QJsonObject object) // NOLINT
         Node *n = new Node();
         n->m_config = m_config;
         n->m_name = it.key();
+        n->m_root = m_root ? m_root : this;
         m_childNodes.append(NodePtr(n));
         // unrolling recursion to iteration makes code less readable. Recursion depth is limited.
         n->setJsonObject(it.value()); // NOLINT
         n->m_parent = this;
     }
     createObject();
+    m_cachedJsonObject = nullptr;
 }
 
 QJsonObject Node::toJsonObject(int level) const // NOLINT
@@ -244,11 +298,19 @@ QJsonObject Node::toJsonObject(int level) const // NOLINT
     QJsonObject ret;
     for (const auto &g : properties) {
         if (level == -1) {
-            ret[g.key] = QJsonValue::fromVariant(g.value());
+            if (g.isRef(level)) {
+                ret[g.key] = refToJsonObject(g.ref());
+            } else {
+                ret[g.key] = QJsonValue::fromVariant(g.value());
+            }
         } else if (g.values.contains(level)) {
             QVariant v = g.values.value(level);
             if (v.isValid()) {
-                ret[g.key] = QJsonValue::fromVariant(v);
+                if (g.isRef(level)) {
+                    ret[g.key] = refToJsonObject(g.refs.value(level));
+                } else {
+                    ret[g.key] = QJsonValue::fromVariant(v);
+                }
             }
         }
     }
@@ -306,18 +368,29 @@ void Node::swapJsonObject(QJsonObject oldObject, QJsonObject newObject, int leve
 void Node::updateJsonObject(QJsonObject object, int level) // NOLINT
 {
     LIMIT_RECURSION_DEPTH(MAX_RECURSION_DEPTH);
+    m_cachedJsonObject = &object;
     QMap<QString, QJsonObject> objects;
 
+    auto getPropertyIndex = [this](const QString & key) -> int {
+        auto ii = std::find_if(properties.begin(), properties.end(), [&](const NamedMultiValue &v) { return v.key == key;});
+        if (ii == properties.end()) {
+            qWarning().noquote() << "Property" << fullPropertyName(key) << "does not exist in base config";
+            return -1;
+        }
+        return std::distance(properties.begin(), ii);
+    };
     for (auto it = object.begin(); it != object.end(); ++it) {
         if (!it.value().isObject()) {
             if (!it.key().startsWith('$')) {
-                auto ii = std::find_if(properties.begin(), properties.end(), [&](const NamedMultiValue &v) { return v.key == it.key();});
-                if (ii == properties.end()) {
-                    qWarning().noquote() << "Property" << fullPropertyName(it.key()) << "does not exist in base config";
-                    continue;
+                if (int id = getPropertyIndex(it.key()); id > -1) {
+                    updateProperty(id, level, it.value().toVariant());
                 }
-                int id = int(std::distance(properties.begin(), ii));
-                updateProperty(id, level, it.value().toVariant());
+            }
+        } else if (isRefObject(it.value().toObject())) {
+            if (int id = getPropertyIndex(it.key()); id > -1) {
+                auto ref = getRefValue(it.value().toObject());
+                updateProperty(id, level, resolvedRef(resolvedRefPath(ref)));
+                properties[id].refs[level] = ref;
             }
         } else {
             objects[it.key()] = it.value().toObject();
@@ -334,6 +407,7 @@ void Node::updateJsonObject(QJsonObject object, int level) // NOLINT
             (*ii)->updateJsonObject(it.value(), level); // NOLINT
         }
     }
+    m_cachedJsonObject = nullptr;
 }
 
 bool Node::updateProperty(int index, int level, const QVariant &value)
@@ -354,6 +428,7 @@ bool Node::updateProperty(int index, int level, const QVariant &value)
             mp.write(m_object, value);
             m_object->blockSignals(false);
         }
+        p.refs.remove(level);
         propertyChangedHelper(index);
         return true;
     }
@@ -365,6 +440,7 @@ void Node::removeProperty(int index, int level)
     auto &p = properties[index];
     auto oldValue = valueAt(index);
     p.values.remove(level);
+    p.refs.remove(level);
     auto newValue = valueAt(index);
     if (oldValue != newValue) {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -499,8 +575,6 @@ void Node::handleSpecialProperty(const QString &name, const QString &value)
             typeHint = QMetaType(QMetaType::UnknownType);
         }
 #endif
-    } else if (name == QLatin1String("$ref")) {
-        qInfo() << "JSON pointers are not implemented yet.";
     }
 }
 
@@ -577,4 +651,61 @@ void Node::notifyPropertyUpdate(int propertyIndex)
     args.append(nullptr);
     QMetaObject::activate(m_object, mo, loc_id, args.data());
     p.emitPending = false;
+}
+
+ bool Node::isRefObject(const QJsonObject &object) const
+ {
+    return object.contains("$ref");
+ }
+
+ QString Node::getRefValue(const QJsonObject &object) const
+ {
+    return object.value("$ref").toString();
+ }
+
+QString Node::resolvedRefPath(const QString &ref) const
+{
+    auto path = ref.mid(2);
+    return path.replace("/", ".").replace("~0", "~").replace("~1", "/");
+}
+
+QVariant Node::resolvedRef(const QString &path) const
+{
+    static const QVariant invalid;
+
+    if (!m_root || !m_root->m_cachedJsonObject) {
+        return invalid;
+    }
+    QVariant result;
+    auto parts = path.split('.');
+    auto object = *m_root->m_cachedJsonObject;
+    while (!parts.isEmpty() && object.contains(parts.first())) {
+        auto key = parts.first();
+        auto v = object.value(key);
+        parts.removeFirst();
+        if (parts.isEmpty()) {
+            if (!v.isObject()) {
+                result = v.toVariant();
+            } else if (isRefObject(v.toObject())) {
+                result = resolvedRef(resolvedRefPath(getRefValue(v.toObject())));
+            } else {
+                qWarning() << "Reference to Json object not supported.";
+                result = invalid;
+            }
+        } else if (v.isObject()) {
+            object = v.toObject();
+        } else {
+            qWarning() << key << "in " << path << "is not an object.";
+            result = invalid;
+        }       
+    }
+
+    return result;
+}
+
+QJsonObject Node::refToJsonObject(const QString &ref) const
+{
+    QJsonObject object;
+    object.insert("$ref", ref);
+    return object;
 }

@@ -1,0 +1,18 @@
+{
+	"palette": {
+		"accent": "#FFD100",
+		"light": "#5CD2FF",
+		"dark": "#004560"
+	},
+	"colors": {
+		"button": {
+			"background": { "$ref": "#/palette/light" },
+			"text": { "$ref": "#/colors/window/background" },
+			"hoveredText": { "$ref": "#/palette/accent" },
+			"disabled": "#A0A0A0"
+		},
+		"window": {
+			"background": { "$ref": "#/palette/dark" }
+		}
+	}
+}

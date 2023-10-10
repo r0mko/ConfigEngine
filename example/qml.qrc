@@ -8,5 +8,6 @@
         <file>config_3.json</file>
         <file>fontconfig.json</file>
         <file>fontlayer.json</file>
+        <file>refconfig.json</file>
     </qresource>
 </RCC>

@@ -3,19 +3,19 @@
         "name": "sansRomanDemi",
         "$type": "FontInfo",
         "family": "Sans_Roman_demi_global",
-        "size": 10,
+        "size": 10
     },
     "sansRomanNormal": {
         "name": "sansRomanNormal",
         "$type": "FontInfo",
         "family": "Sans_Roman_normal_global",
-        "size": 10,
+        "size": 10
     },
     "sansRomanLight": {
         "name": "sansRomanLight",
         "$type": "FontInfo",
         "family": "Sans_Roman_light_global",
-        "size": 10,
+        "size": 10
     },
     "sansRomanBold": {
         "name": "sansRomanBold",
@@ -27,24 +27,24 @@
         "name": "sansRomanLight-num",
         "$type": "FontInfo",
         "family": "Sans_Roman_light_global_num",
-        "size": 10,
+        "size": 10
     },
     "sansRomanNormal_num": {
         "name": "sansRomanNormal-num",
         "$type": "FontInfo",
         "family": "Sans_Roman_normal_num",
-        "size": 10,
+        "size": 10
     },
     "sansRomanDemi_num": {
         "name": "sansRomanDemi-num",
         "$type": "FontInfo",
         "family": "Sans_Roman_demi_num",
-        "size": 10,
+        "size": 10
     },
     "sansRomanBold_num": {
         "name": "sansRomanBold-num",
         "$type": "FontInfo",
         "family": "Sans_Roman_bold_num",
-        "size": 10,
-    },
+        "size": 10
+    }
 }

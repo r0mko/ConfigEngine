@@ -17,6 +17,7 @@ Window {
     property var model: [{"name": "config_1", "layer": null }, { "name": "config_2", "layer": null }, { "name": "config_3", "layer": null }]
 
     property QtObject config: _config.configData
+    property QtObject refConfig: _refConfig.configData
 
     JsonConfig {
         id: _config
@@ -47,6 +48,11 @@ Window {
         onActiveLayersChanged: {
             console.log("Active layers", activeLayers, configData.sansRomanLight50.family)
         }
+    }
+
+    JsonConfig {
+        id: _refConfig
+        filePath: ":/refconfig.json"
     }
 
     ColumnLayout {
@@ -127,8 +133,53 @@ Window {
                 rotation: config.editor.rotation
                 color: config.editor.colors.textDefaultColor
             }
-        }
 
+            Frame {
+                anchors.right: parent.right
+                anchors.top: parent.top
+                width: 200
+                height: 200
+
+                ColumnLayout {
+                    anchors.fill: parent
+
+                    Rectangle {
+                        id: _refBg
+                        Layout.fillHeight: true
+                        Layout.fillWidth: true
+                        color: refConfig.colors.window.background
+
+                        Button {
+                            id: refButton
+                            anchors.centerIn: _refBg
+                            text: 'JsonPointer'
+                            enabled: !checkBox.checked
+                            contentItem: Label {
+                                anchors.fill: parent
+                                text: refButton.text
+                                color: enabled ? refButton.hovered ? refConfig.colors.button.hoveredText : refConfig.colors.button.text : refConfig.colors.button.disabled
+
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+                            background: Rectangle {
+                                anchors.fill: parent
+                                radius: 2
+                                color: refConfig.colors.button.background
+                            }
+                        }
+                    }
+
+                    CheckBox {
+                        id: checkBox
+                        anchors.top: _refBg.bottom
+                        anchors.right: _refBg.right
+                        text: 'Disable Button'
+                    }
+                }
+            }
+        }
 
         ColumnLayout {
             Repeater {

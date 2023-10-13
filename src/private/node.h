@@ -42,6 +42,7 @@ public:
         NamedMultiValue(QString key, QVariant value);
         QString key;
         QMap<int, QVariant> values;
+        QMap<int, QString> refs;
         bool emitPending = false;
         int userTypePropertyIndex = -1;
         QMetaObject::Connection listenerConnection;
@@ -49,6 +50,12 @@ public:
         int setValue(const QVariant &value);
         void writeValue(const QVariant &value, int level);
         void changePriority(int oldPrio, int newPrio);
+        bool isRef(int level) const;
+        const QString &ref() const;
+
+    private:
+        bool changeValuePriority(int oldPrio, int newPrio);
+        bool changeRefPriority(int oldPrio, int newPrio);
     };
 
     using NodePtr = QSharedPointer<Node>;
@@ -83,9 +90,15 @@ private:
     void createObject();
     void updateObjectProperties();
     static void emitSignalHelper(QObject *object, int signalIndex);
+    bool isRefObject(const QJsonObject &object) const;
+    QString getRefValue(const QJsonObject &object) const;
+    QString resolvedRefPath(const QString &ref) const;
+    QVariant resolvedRef(const QString &path) const;
+    QJsonObject refToJsonObject(const QString &ref) const;
 
     QObject *m_object = nullptr;
     Node *m_parent = nullptr;
+    Node *m_root = nullptr;
     QString m_name;
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     int typeHint = QMetaType::UnknownType;
@@ -94,6 +107,7 @@ private:
 #endif
     JsonConfig *m_config = nullptr;
     QList<NodePtr> m_childNodes;
+    QJsonObject *m_cachedJsonObject = nullptr;
     void handleSpecialProperty(const QString &name, const QString &value);
 };
 

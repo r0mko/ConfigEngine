@@ -33,4 +33,9 @@ DynamicLibrary {
     install: true
     installDir: FileInfo.joinPaths(project.installImportsDir, 'r0mko/config')
     qbs.installPrefix: project.installContentsPath
+
+    Export {
+        Depends { name: 'cpp' }
+        cpp.includePaths: exportingProduct.sourceDirectory
+    }
 }

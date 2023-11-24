@@ -1,6 +1,8 @@
 import qbs.FileInfo
 
-DynamicLibrary {
+Library {
+    type: project.buildAsStatic? 'staticlibrary' : 'dynamiclibrary'
+
     Depends { name: 'bundle' }
     Depends {
         name: 'Qt'
